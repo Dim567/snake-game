@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"runtime"
 	"strings"
 
@@ -122,18 +123,18 @@ func main() {
 
 	// create program
 	program := gl.CreateProgram()
-	// if {
-	// 	var success
-	// 	glGetProgramiv(shader, GL_LINK_STATUS, &success);
-	// 	if(!success)
-	// 	{
-	// 		glGetProgramInfoLog(shader, 1024, NULL, infoLog);
-	// 		std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
-	// 	}
-	// }
 	gl.AttachShader(program, vertexShader)
 	gl.AttachShader(program, fragmentShader)
 	gl.LinkProgram(program)
+	var linkStatus int32
+	gl.GetProgramiv(program, gl.LINK_STATUS, &linkStatus)
+	if linkStatus == gl.FALSE {
+		var logLength int32
+		gl.GetProgramiv(program, gl.INFO_LOG_LENGTH, &logLength)
+		log := strings.Repeat("\x00", int(logLength+1))
+		gl.GetProgramInfoLog(program, logLength, nil, gl.Str(log))
+		fmt.Errorf("failed to link programm: %v", log)
+	}
 
 	// create buffers
 	var vertexArrayObject uint32
@@ -197,5 +198,8 @@ func processInput(window *glfw.Window) {
 }
 
 func framebufferSizeCallback(window *glfw.Window, width, height int) {
-	gl.Viewport(0, 0, int32(width), int32(height))
+	length := int32(math.Min(float64(width), float64(height)))
+	startX := int32((width - int(length)) / 2)
+	startY := int32((height - int(length)) / 2)
+	gl.Viewport(startX, startY, length, length)
 }

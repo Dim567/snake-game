@@ -8,13 +8,17 @@ import (
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
+	"github.com/go-gl/mathgl/mgl32"
 )
 
-// widow initial sizes
+// window initial sizes
 const (
 	windowWidth  = 800
 	windowHeight = 800
 )
+
+// cells number
+const cellsNumber = 10
 
 // mouse positions
 var firstMouse = true
@@ -27,12 +31,13 @@ var lastFrame = float32(0)
 
 // prepare vertices
 var vertices = []float32{
-	-0.5, 0.5, 0.0,
-	0.5, -0.5, 0.0,
-	0.5, 0.5, 0.0,
-	-0.5, 0.5, 0.0,
-	0.5, -0.5, 0.0,
-	-0.5, -0.5, 0.0,
+	0, 1, 0.0, // top left
+	1, 1, 0.0, // top right
+	1, 0, 0.0, // bottom right
+
+	0, 1, 0.0, // top left
+	1, 0, 0.0, // bottom right
+	0, 0, 0.0, // bottom left
 }
 
 const (
@@ -40,9 +45,11 @@ const (
 	#version 410
     layout (location = 0) in vec3 aPos;
 
+	uniform mat4 transformMatrix;
+
     void main()
     {
-       gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+       gl_Position = transformMatrix*vec4(aPos.x, aPos.y, aPos.z, 1.0);
     }
 	` + "\x00"
 
@@ -51,7 +58,7 @@ const (
 	out vec4 FragmentColor;
 
 	void main() {
-		FragmentColor=vec4(1.0, 1.0, 0.0, 1.0);	
+		FragmentColor=vec4(1.0, 0.0, 0.0, 1.0);	
 	}
 	` + "\x00"
 )
@@ -85,6 +92,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 
 	// create vertex shader
 	vertexShader := gl.CreateShader(gl.VERTEX_SHADER)
@@ -150,6 +158,9 @@ func main() {
 	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 3*4, nil)
 	gl.EnableVertexAttribArray(0)
 
+	xOffset := float32(0)
+	yOffset := float32(0)
+	delta := float32(1)
 	// main loop
 	for !window.ShouldClose() {
 		currentFrame := glfw.GetTime()
@@ -159,7 +170,19 @@ func main() {
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		drawObject(program, vertexArrayObject)
+		// for i := 0; i < cellsNumber; i++ {
+		// 	for j := 0; j < cellsNumber; j++ {
+		// 		xOffset := j
+		// 		yOffset := i
+		// 		drawObject(program, vertexArrayObject, xOffset, yOffset)
+		// 	}
+		// }
+		drawObject(program, vertexArrayObject, xOffset, yOffset)
+		xOffset += delta
+
+		if xOffset >= cellsNumber-1 || xOffset <= 0 {
+			delta = (-1) * delta
+		}
 
 		glfw.PollEvents()
 		window.SwapBuffers()
@@ -176,13 +199,17 @@ func getAngle(velocity, time float32) float32 {
 	return angle
 }
 
-func drawObject(program, vertexArrayObject uint32) {
+func drawObject(program, vertexArrayObject uint32, xOffset, yOffset float32) {
+	scaleFactor := float32(2.0 / cellsNumber)
+	scale := mgl32.Scale3D(scaleFactor, scaleFactor, 1)
+	xPos := xOffset*scaleFactor - 1
+	yPos := yOffset*scaleFactor - 1
+	translate := mgl32.Translate3D(xPos, yPos, 0)
+	transform := translate.Mul4(scale)
+	gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("transformMatrix\x00")), 1, false, &transform[0])
 	gl.UseProgram(program)
 	gl.BindVertexArray(vertexArrayObject)
-
-	// drawing ////////////////////////////////////////
-	// gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, nil)
-	gl.DrawArrays(gl.TRIANGLES, 0, 36)
+	gl.DrawArrays(gl.TRIANGLES, 0, 6)
 	gl.BindVertexArray(0)
 }
 

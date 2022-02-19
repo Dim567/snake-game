@@ -160,28 +160,31 @@ func main() {
 
 	xOffset := float32(0)
 	yOffset := float32(0)
-	delta := float32(1)
+	direction := int8(1)
+	startTime := glfw.GetTime()
+
 	// main loop
 	for !window.ShouldClose() {
-		currentFrame := glfw.GetTime()
-		deltaTime = float32(currentFrame) - lastFrame
-		lastFrame = float32(currentFrame)
+		endTime := glfw.GetTime()
+		period := endTime - startTime
+		speed := 10 * period
+		delta := float32(math.Floor(speed))
+		if delta > 0 {
+			startTime = endTime
+		}
+		xOffset += float32(direction) * delta
+
 		processInput(window)
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		// for i := 0; i < cellsNumber; i++ {
-		// 	for j := 0; j < cellsNumber; j++ {
-		// 		xOffset := j
-		// 		yOffset := i
-		// 		drawObject(program, vertexArrayObject, xOffset, yOffset)
-		// 	}
-		// }
 		drawObject(program, vertexArrayObject, xOffset, yOffset)
-		xOffset += delta
 
-		if xOffset >= cellsNumber-1 || xOffset <= 0 {
-			delta = (-1) * delta
+		if xOffset >= cellsNumber-1 {
+			direction = -1
+		}
+		if xOffset <= 0 {
+			direction = 1
 		}
 
 		glfw.PollEvents()
@@ -229,4 +232,36 @@ func framebufferSizeCallback(window *glfw.Window, width, height int) {
 	startX := int32((width - int(length)) / 2)
 	startY := int32((height - int(length)) / 2)
 	gl.Viewport(startX, startY, length, length)
+}
+
+// Gets coordinate along axis depending on speed and initial coord
+//
+// speed — cells per second
+//
+// time — seconds (1.3243473...)
+//
+// axisSize — number of cells in gorizontal/vertical direction
+//
+// startPoint — coord to start from
+//
+// Returns coordinate of the grid axis (integer from 0 to the width/height of the grid minus 1)
+// func getNextCoord(speed, time float64, axisSize int) float32 {
+// 	currentTime := int(time * speed)
+// 	size := axisSize - 1
+// 	coord := float32((-1)*math.Abs(float64(currentTime%(size*2)-size)) + float64(size))
+// 	return coord
+// }
+func getNextCoord(startCoord float32, direction int8, startTime, endTime float64) float32 {
+	delta := float32(0)
+	period := endTime - startTime
+	if period >= 1 {
+		if direction == 1 {
+			delta = 1
+		}
+		if direction == -1 {
+			delta = -1
+		}
+	}
+	nextCoord := startCoord + delta
+	return nextCoord
 }

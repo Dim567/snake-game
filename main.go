@@ -11,23 +11,34 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
-// window initial sizes
+// Window initial sizes
 const (
 	windowWidth  = 800
 	windowHeight = 800
 )
 
-// cells number
+// Cells number
 const cellsNumber = 10
 
+const (
+	fromStart int8 = 1
+	toStart   int8 = -1
+)
+
+// Movement direction (from coord start = 1/to coord start = (-1))
+var direction = fromStart
+
+// Movement horizontal or vertical
+var horizontalMove = true
+
 // mouse positions
-var firstMouse = true
-var lastX = float32(900)
-var lastY = float32(500)
+// var firstMouse = true
+// var lastX = float32(900)
+// var lastY = float32(500)
 
 // velocity settings
-var deltaTime = float32(0)
-var lastFrame = float32(0)
+// var deltaTime = float32(0)
+// var lastFrame = float32(0)
 
 // prepare vertices
 var vertices = []float32{
@@ -160,46 +171,48 @@ func main() {
 
 	xOffset := float32(0)
 	yOffset := float32(0)
-	direction := int8(1)
 	startTime := glfw.GetTime()
-
+	higherEdge := float32(cellsNumber - 1)
+	lowerEdge := float32(0)
 	// main loop
 	for !window.ShouldClose() {
 		endTime := glfw.GetTime()
 		period := endTime - startTime
-		speed := 10 * period
+		speed := 2 * period // 1 cell per second
 		delta := float32(math.Floor(speed))
 		if delta > 0 {
 			startTime = endTime
 		}
-		xOffset += float32(direction) * delta
+
+		if horizontalMove {
+			xOffset += float32(direction) * delta
+			if xOffset >= higherEdge && direction == fromStart {
+				direction = int8(0)
+			}
+			if xOffset <= lowerEdge && direction == toStart {
+				direction = int8(0)
+			}
+		} else {
+			yOffset += float32(direction) * delta
+			if yOffset >= higherEdge && direction == fromStart {
+				direction = int8(0)
+			}
+			if yOffset <= lowerEdge && direction == toStart {
+				direction = int8(0)
+			}
+		}
 
 		processInput(window)
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 		drawObject(program, vertexArrayObject, xOffset, yOffset)
-
-		if xOffset >= cellsNumber-1 {
-			direction = -1
-		}
-		if xOffset <= 0 {
-			direction = 1
-		}
+		drawObject(program, vertexArrayObject, xOffset-1, yOffset)
 
 		glfw.PollEvents()
 		window.SwapBuffers()
 		glfw.SwapInterval(1)
 	}
-}
-
-func getAngle(velocity, time float32) float32 {
-	path := velocity * time
-	roundsCount := path / 360
-	fullRoundsCount := float32(int(roundsCount))
-	angle := (roundsCount - fullRoundsCount) * 360
-
-	return angle
 }
 
 func drawObject(program, vertexArrayObject uint32, xOffset, yOffset float32) {
@@ -217,13 +230,21 @@ func drawObject(program, vertexArrayObject uint32, xOffset, yOffset float32) {
 }
 
 func processInput(window *glfw.Window) {
-	if window.GetKey(glfw.KeyW) == glfw.Press {
+	if window.GetKey(glfw.KeyUp) == glfw.Press {
+		direction = 1
+		horizontalMove = false
 	}
-	if window.GetKey(glfw.KeyS) == glfw.Press {
+	if window.GetKey(glfw.KeyDown) == glfw.Press {
+		direction = -1
+		horizontalMove = false
 	}
-	if window.GetKey(glfw.KeyA) == glfw.Press {
+	if window.GetKey(glfw.KeyLeft) == glfw.Press {
+		direction = -1
+		horizontalMove = true
 	}
-	if window.GetKey(glfw.KeyD) == glfw.Press {
+	if window.GetKey(glfw.KeyRight) == glfw.Press {
+		direction = 1
+		horizontalMove = true
 	}
 }
 
@@ -232,36 +253,4 @@ func framebufferSizeCallback(window *glfw.Window, width, height int) {
 	startX := int32((width - int(length)) / 2)
 	startY := int32((height - int(length)) / 2)
 	gl.Viewport(startX, startY, length, length)
-}
-
-// Gets coordinate along axis depending on speed and initial coord
-//
-// speed — cells per second
-//
-// time — seconds (1.3243473...)
-//
-// axisSize — number of cells in gorizontal/vertical direction
-//
-// startPoint — coord to start from
-//
-// Returns coordinate of the grid axis (integer from 0 to the width/height of the grid minus 1)
-// func getNextCoord(speed, time float64, axisSize int) float32 {
-// 	currentTime := int(time * speed)
-// 	size := axisSize - 1
-// 	coord := float32((-1)*math.Abs(float64(currentTime%(size*2)-size)) + float64(size))
-// 	return coord
-// }
-func getNextCoord(startCoord float32, direction int8, startTime, endTime float64) float32 {
-	delta := float32(0)
-	period := endTime - startTime
-	if period >= 1 {
-		if direction == 1 {
-			delta = 1
-		}
-		if direction == -1 {
-			delta = -1
-		}
-	}
-	nextCoord := startCoord + delta
-	return nextCoord
 }

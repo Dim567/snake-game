@@ -20,12 +20,50 @@ const (
 // Cells number
 const cellsNumber = 10
 
+// Cell
+type Cell struct {
+	coords mgl32.Vec2
+}
+
+type Snake []Cell
+
+func (snake Snake) Move(vec mgl32.Vec2) {
+	headIndex := len(snake) - 1
+	headCoords := snake[headIndex].coords
+	if vec.X() != headCoords.X() || vec.Y() != headCoords.Y() {
+		for i := 0; i < headIndex; i++ {
+			newCoords := snake[i+1].coords
+			snake[i].coords = newCoords
+		}
+		snake[headIndex].coords = vec
+	}
+}
+
+func (snake Snake) Draw(program, vao uint32) {
+	for i := 0; i < len(snake); i++ {
+		coords := snake[i].coords
+		drawObject(program, vao, coords)
+	}
+}
+
+func (snake Snake) GetHead() Cell {
+	return snake[len(snake)-1]
+}
+
+func InitSnake(n int) Snake {
+	snake := make(Snake, n, cellsNumber*cellsNumber)
+	for i := 0; i < len(snake); i++ {
+		snake[i].coords = mgl32.Vec2{float32(i), float32(0)}
+	}
+	return snake
+}
+
 const (
 	fromStart int8 = 1
 	toStart   int8 = -1
 )
 
-// Movement direction (from coord start = 1/to coord start = (-1))
+// Movement direction
 var direction = fromStart
 
 // Movement horizontal or vertical
@@ -169,13 +207,18 @@ func main() {
 	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 3*4, nil)
 	gl.EnableVertexAttribArray(0)
 
-	xOffset := float32(0)
-	yOffset := float32(0)
+	// xOffset := float32(0)
+	// yOffset := float32(0)
 	startTime := glfw.GetTime()
 	higherEdge := float32(cellsNumber - 1)
 	lowerEdge := float32(0)
+
+	snake := InitSnake(5)
 	// main loop
 	for !window.ShouldClose() {
+		snakeHead := snake.GetHead()
+		x := snakeHead.coords.X()
+		y := snakeHead.coords.Y()
 		endTime := glfw.GetTime()
 		period := endTime - startTime
 		speed := 2 * period // 1 cell per second
@@ -185,29 +228,31 @@ func main() {
 		}
 
 		if horizontalMove {
-			xOffset += float32(direction) * delta
-			if xOffset >= higherEdge && direction == fromStart {
+			x += float32(direction) * delta
+			if x >= higherEdge && direction == fromStart {
 				direction = int8(0)
 			}
-			if xOffset <= lowerEdge && direction == toStart {
+			if x <= lowerEdge && direction == toStart {
 				direction = int8(0)
 			}
 		} else {
-			yOffset += float32(direction) * delta
-			if yOffset >= higherEdge && direction == fromStart {
+			y += float32(direction) * delta
+			if y >= higherEdge && direction == fromStart {
 				direction = int8(0)
 			}
-			if yOffset <= lowerEdge && direction == toStart {
+			if y <= lowerEdge && direction == toStart {
 				direction = int8(0)
 			}
 		}
+
+		snake.Move(mgl32.Vec2{x, y})
 
 		processInput(window)
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		drawObject(program, vertexArrayObject, xOffset, yOffset)
-		drawObject(program, vertexArrayObject, xOffset-1, yOffset)
+		snake.Draw(program, vertexArrayObject)
+		// drawObject(program, vertexArrayObject, xOffset, yOffset)
 
 		glfw.PollEvents()
 		window.SwapBuffers()
@@ -215,11 +260,11 @@ func main() {
 	}
 }
 
-func drawObject(program, vertexArrayObject uint32, xOffset, yOffset float32) {
+func drawObject(program, vertexArrayObject uint32, vec mgl32.Vec2) {
 	scaleFactor := float32(2.0 / cellsNumber)
 	scale := mgl32.Scale3D(scaleFactor, scaleFactor, 1)
-	xPos := xOffset*scaleFactor - 1
-	yPos := yOffset*scaleFactor - 1
+	xPos := vec.X()*scaleFactor - 1
+	yPos := vec.Y()*scaleFactor - 1
 	translate := mgl32.Translate3D(xPos, yPos, 0)
 	transform := translate.Mul4(scale)
 	gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("transformMatrix\x00")), 1, false, &transform[0])

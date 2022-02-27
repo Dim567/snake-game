@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
@@ -23,6 +25,27 @@ const cellsNumber = 10
 // Cell
 type Cell struct {
 	coords mgl32.Vec2
+}
+
+type Food struct {
+	cell      Cell
+	seedValue int64
+}
+
+func (food *Food) ChangePosition(possibleCells []int, seedValue int64) {
+	if seedValue == food.seedValue {
+		return
+	}
+	seed := rand.NewSource(seedValue)
+	randNew := rand.New(seed)
+	chosenCell := possibleCells[randNew.Intn(len(possibleCells))]
+	x, y := indexToCoords(chosenCell)
+	food.cell.coords = mgl32.Vec2{float32(x), float32(y)}
+}
+
+func (food *Food) Draw(program, vao uint32) {
+	position := food.cell.coords
+	drawObject(program, vao, position)
 }
 
 type Snake []Cell
@@ -214,6 +237,22 @@ func main() {
 	lowerEdge := float32(0)
 
 	snake := InitSnake(5)
+
+	///////////////////////////////////////
+	// food cells
+	fieldCellsNumber := cellsNumber * cellsNumber
+	freeCells := make([]int, 0, fieldCellsNumber)
+	busyCells := []int{2, 99, 0} //make([]int, 0, fieldCellsNumber)
+	for i := 0; i < cellsNumber; i++ {
+		for j := 0; j < cellsNumber; j++ {
+			index := coordsToIndex(i, j)
+			freeCells = append(freeCells, index)
+		}
+	}
+	possibleCells := cellsDifference(freeCells, busyCells)
+	var food Food
+	food.ChangePosition(possibleCells, time.Now().UnixNano())
+	//////////////////////////////////////////////////////////////////
 	// main loop
 	for !window.ShouldClose() {
 		snakeHead := snake.GetHead()
@@ -251,6 +290,7 @@ func main() {
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
+		food.Draw(program, vertexArrayObject)
 		snake.Draw(program, vertexArrayObject)
 		// drawObject(program, vertexArrayObject, xOffset, yOffset)
 
@@ -298,4 +338,28 @@ func framebufferSizeCallback(window *glfw.Window, width, height int) {
 	startX := int32((width - int(length)) / 2)
 	startY := int32((height - int(length)) / 2)
 	gl.Viewport(startX, startY, length, length)
+}
+
+func cellsDifference(firstSlice, secondSlice []int) []int {
+	diffCells := make([]int, 0, len(secondSlice))
+	cellsMap := make(map[int]bool)
+	for _, val := range secondSlice {
+		cellsMap[val] = true
+	}
+	for _, val := range firstSlice {
+		if _, ok := cellsMap[val]; !ok {
+			diffCells = append(diffCells, val)
+		}
+	}
+	return diffCells
+}
+
+func coordsToIndex(x, y int) int {
+	return y*10 + x
+}
+
+func indexToCoords(i int) (x, y int) {
+	x = i % 10
+	y = i / 10
+	return
 }

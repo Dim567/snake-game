@@ -22,25 +22,26 @@ const (
 // Cells number
 const cellsNumber = 10
 
+var changeFoodPosition bool = true
+
 // Cell
 type Cell struct {
 	coords mgl32.Vec2
 }
 
 type Food struct {
-	cell      Cell
-	seedValue int64
+	cell Cell
 }
 
-func (food *Food) ChangePosition(possibleCells []int, seedValue int64) {
-	if seedValue == food.seedValue {
-		return
+func (food *Food) SetPosition(possibleCells []int) {
+	if len(possibleCells) > 0 {
+		seedValue := time.Now().UnixNano()
+		seed := rand.NewSource(seedValue)
+		randNew := rand.New(seed)
+		chosenCell := possibleCells[randNew.Intn(len(possibleCells))]
+		x, y := indexToCoords(chosenCell)
+		food.cell.coords = mgl32.Vec2{float32(x), float32(y)}
 	}
-	seed := rand.NewSource(seedValue)
-	randNew := rand.New(seed)
-	chosenCell := possibleCells[randNew.Intn(len(possibleCells))]
-	x, y := indexToCoords(chosenCell)
-	food.cell.coords = mgl32.Vec2{float32(x), float32(y)}
 }
 
 func (food *Food) Draw(program, vao uint32) {
@@ -48,37 +49,51 @@ func (food *Food) Draw(program, vao uint32) {
 	drawObject(program, vao, position)
 }
 
-type Snake []Cell
+type Snake struct {
+	body []Cell
+}
 
-func (snake Snake) Move(vec mgl32.Vec2) {
-	headIndex := len(snake) - 1
-	headCoords := snake[headIndex].coords
+func (snake *Snake) Move(vec mgl32.Vec2) {
+	snakeBody := snake.body
+	headIndex := len(snakeBody) - 1
+	headCoords := snakeBody[headIndex].coords
 	if vec.X() != headCoords.X() || vec.Y() != headCoords.Y() {
 		for i := 0; i < headIndex; i++ {
-			newCoords := snake[i+1].coords
-			snake[i].coords = newCoords
+			newCoords := snakeBody[i+1].coords
+			snakeBody[i].coords = newCoords
 		}
-		snake[headIndex].coords = vec
+		snakeBody[headIndex].coords = vec
 	}
 }
 
-func (snake Snake) Draw(program, vao uint32) {
-	for i := 0; i < len(snake); i++ {
-		coords := snake[i].coords
+func (snake *Snake) Eat(food *Food) {
+	snakeHead := snake.GetHead()
+	if snakeHead.coords.X() == food.cell.coords.X() && snakeHead.coords.Y() == food.cell.coords.Y() {
+		snake.body = append(snake.body, food.cell)
+		changeFoodPosition = true
+	}
+}
+
+func (snake *Snake) Draw(program, vao uint32) {
+	snakeBody := snake.body
+	for i := 0; i < len(snakeBody); i++ {
+		coords := snakeBody[i].coords
 		drawObject(program, vao, coords)
 	}
 }
 
-func (snake Snake) GetHead() Cell {
-	return snake[len(snake)-1]
+func (snake *Snake) GetHead() Cell {
+	snakeBody := snake.body
+	return snakeBody[len(snakeBody)-1]
 }
 
-func InitSnake(n int) Snake {
-	snake := make(Snake, n, cellsNumber*cellsNumber)
-	for i := 0; i < len(snake); i++ {
-		snake[i].coords = mgl32.Vec2{float32(i), float32(0)}
+func InitSnake(n int) *Snake {
+	var snake Snake
+	snake.body = make([]Cell, n, cellsNumber*cellsNumber)
+	for i := 0; i < len(snake.body); i++ {
+		snake.body[i].coords = mgl32.Vec2{float32(i), float32(0)}
 	}
-	return snake
+	return &snake
 }
 
 const (
@@ -236,28 +251,18 @@ func main() {
 	higherEdge := float32(cellsNumber - 1)
 	lowerEdge := float32(0)
 
-	snake := InitSnake(5)
+	snake := InitSnake(3)
 
-	///////////////////////////////////////
-	// food cells
-	fieldCellsNumber := cellsNumber * cellsNumber
-	freeCells := make([]int, 0, fieldCellsNumber)
-	busyCells := []int{2, 99, 0} //make([]int, 0, fieldCellsNumber)
-	for i := 0; i < cellsNumber; i++ {
-		for j := 0; j < cellsNumber; j++ {
-			index := coordsToIndex(i, j)
-			freeCells = append(freeCells, index)
-		}
-	}
-	possibleCells := cellsDifference(freeCells, busyCells)
 	var food Food
-	food.ChangePosition(possibleCells, time.Now().UnixNano())
+
+	fieldCells := make([]int, cellsNumber*cellsNumber)
+	for i := 0; i < len(fieldCells); i++ {
+		fieldCells[i] = i
+	}
+
 	//////////////////////////////////////////////////////////////////
 	// main loop
 	for !window.ShouldClose() {
-		snakeHead := snake.GetHead()
-		x := snakeHead.coords.X()
-		y := snakeHead.coords.Y()
 		endTime := glfw.GetTime()
 		period := endTime - startTime
 		speed := 2 * period // 1 cell per second
@@ -265,6 +270,11 @@ func main() {
 		if delta > 0 {
 			startTime = endTime
 		}
+
+		// food.SetPosition(busyCells)
+		snakeHead := snake.GetHead()
+		x := snakeHead.coords.X()
+		y := snakeHead.coords.Y()
 
 		if horizontalMove {
 			x += float32(direction) * delta
@@ -284,6 +294,13 @@ func main() {
 			}
 		}
 
+		if changeFoodPosition {
+			possibleCells := getPossibleCells(snake, fieldCells)
+			food.SetPosition(possibleCells)
+			changeFoodPosition = false
+		}
+
+		snake.Eat(&food)
 		snake.Move(mgl32.Vec2{x, y})
 
 		processInput(window)
@@ -362,4 +379,13 @@ func indexToCoords(i int) (x, y int) {
 	x = i % 10
 	y = i / 10
 	return
+}
+
+func getPossibleCells(snake *Snake, fieldCells []int) []int {
+	busyCells := make([]int, len(snake.body))
+	for i, val := range snake.body {
+		busyCells[i] = coordsToIndex(int(val.coords.X()), int(val.coords.Y()))
+	}
+	possibleCells := cellsDifference(fieldCells, busyCells)
+	return possibleCells
 }

@@ -3,10 +3,9 @@ package main
 import (
 	"fmt"
 	"math"
-	"math/rand"
 	"runtime"
+	"snakegame/snakemodule"
 	"strings"
-	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
@@ -23,78 +22,6 @@ const (
 const cellsNumber = 10
 
 var changeFoodPosition bool = true
-
-// Cell
-type Cell struct {
-	coords mgl32.Vec2
-}
-
-type Food struct {
-	cell Cell
-}
-
-func (food *Food) SetPosition(possibleCells []int) {
-	if len(possibleCells) > 0 {
-		seedValue := time.Now().UnixNano()
-		seed := rand.NewSource(seedValue)
-		randNew := rand.New(seed)
-		chosenCell := possibleCells[randNew.Intn(len(possibleCells))]
-		x, y := indexToCoords(chosenCell)
-		food.cell.coords = mgl32.Vec2{float32(x), float32(y)}
-	}
-}
-
-func (food *Food) Draw(program, vao uint32) {
-	position := food.cell.coords
-	drawObject(program, vao, position)
-}
-
-type Snake struct {
-	body []Cell
-}
-
-func (snake *Snake) Move(vec mgl32.Vec2) {
-	snakeBody := snake.body
-	headIndex := len(snakeBody) - 1
-	headCoords := snakeBody[headIndex].coords
-	if vec.X() != headCoords.X() || vec.Y() != headCoords.Y() {
-		for i := 0; i < headIndex; i++ {
-			newCoords := snakeBody[i+1].coords
-			snakeBody[i].coords = newCoords
-		}
-		snakeBody[headIndex].coords = vec
-	}
-}
-
-func (snake *Snake) Eat(food *Food) {
-	snakeHead := snake.GetHead()
-	if snakeHead.coords.X() == food.cell.coords.X() && snakeHead.coords.Y() == food.cell.coords.Y() {
-		snake.body = append(snake.body, food.cell)
-		changeFoodPosition = true
-	}
-}
-
-func (snake *Snake) Draw(program, vao uint32) {
-	snakeBody := snake.body
-	for i := 0; i < len(snakeBody); i++ {
-		coords := snakeBody[i].coords
-		drawObject(program, vao, coords)
-	}
-}
-
-func (snake *Snake) GetHead() Cell {
-	snakeBody := snake.body
-	return snakeBody[len(snakeBody)-1]
-}
-
-func InitSnake(n int) *Snake {
-	var snake Snake
-	snake.body = make([]Cell, n, cellsNumber*cellsNumber)
-	for i := 0; i < len(snake.body); i++ {
-		snake.body[i].coords = mgl32.Vec2{float32(i), float32(0)}
-	}
-	return &snake
-}
 
 const (
 	fromStart int8 = 1
@@ -251,9 +178,9 @@ func main() {
 	higherEdge := float32(cellsNumber - 1)
 	lowerEdge := float32(0)
 
-	snake := InitSnake(3)
+	snake := snakemodule.InitSnake(3)
 
-	var food Food
+	var food snakemodule.Food
 
 	fieldCells := make([]int, cellsNumber*cellsNumber)
 	for i := 0; i < len(fieldCells); i++ {
@@ -273,8 +200,8 @@ func main() {
 
 		// food.SetPosition(busyCells)
 		snakeHead := snake.GetHead()
-		x := snakeHead.coords.X()
-		y := snakeHead.coords.Y()
+		x := snakeHead.GetCoords().X()
+		y := snakeHead.GetCoords().Y()
 
 		if horizontalMove {
 			x += float32(direction) * delta
@@ -295,20 +222,20 @@ func main() {
 		}
 
 		if changeFoodPosition {
-			possibleCells := getPossibleCells(snake, fieldCells)
+			possibleCells := snakemodule.GetPossibleCells(snake, fieldCells)
 			food.SetPosition(possibleCells)
 			changeFoodPosition = false
 		}
 
-		snake.Eat(&food)
+		snake.Eat(&food, &changeFoodPosition)
 		snake.Move(mgl32.Vec2{x, y})
 
 		processInput(window)
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		food.Draw(program, vertexArrayObject)
-		snake.Draw(program, vertexArrayObject)
+		food.Draw(program, vertexArrayObject, drawObject)
+		snake.Draw(program, vertexArrayObject, drawObject)
 		// drawObject(program, vertexArrayObject, xOffset, yOffset)
 
 		glfw.PollEvents()
@@ -355,37 +282,4 @@ func framebufferSizeCallback(window *glfw.Window, width, height int) {
 	startX := int32((width - int(length)) / 2)
 	startY := int32((height - int(length)) / 2)
 	gl.Viewport(startX, startY, length, length)
-}
-
-func cellsDifference(firstSlice, secondSlice []int) []int {
-	diffCells := make([]int, 0, len(secondSlice))
-	cellsMap := make(map[int]bool)
-	for _, val := range secondSlice {
-		cellsMap[val] = true
-	}
-	for _, val := range firstSlice {
-		if _, ok := cellsMap[val]; !ok {
-			diffCells = append(diffCells, val)
-		}
-	}
-	return diffCells
-}
-
-func coordsToIndex(x, y int) int {
-	return y*10 + x
-}
-
-func indexToCoords(i int) (x, y int) {
-	x = i % 10
-	y = i / 10
-	return
-}
-
-func getPossibleCells(snake *Snake, fieldCells []int) []int {
-	busyCells := make([]int, len(snake.body))
-	for i, val := range snake.body {
-		busyCells[i] = coordsToIndex(int(val.coords.X()), int(val.coords.Y()))
-	}
-	possibleCells := cellsDifference(fieldCells, busyCells)
-	return possibleCells
 }

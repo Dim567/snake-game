@@ -1,5 +1,7 @@
 package helpers
 
+import "github.com/go-gl/mathgl/mgl32"
+
 func CellsDifference(firstSlice, secondSlice []int) []int {
 	diffCells := make([]int, 0, len(secondSlice))
 	cellsMap := make(map[int]bool)
@@ -22,4 +24,8 @@ func IndexToCoords(i int) (x, y int) {
 	x = i % 10
 	y = i / 10
 	return
+}
+
+func Distance(coord1, coord2 mgl32.Vec2) float32 {
+	return coord1.Sub(coord2).Len()
 }

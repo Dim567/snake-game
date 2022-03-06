@@ -178,7 +178,7 @@ func main() {
 	higherEdge := float32(cellsNumber-1) + 0.5
 	lowerEdge := float32(0) - 0.5
 
-	snake := snakemodule.InitSnake(3)
+	snake := snakemodule.InitSnake(7)
 
 	var food snakemodule.Food
 
@@ -201,10 +201,6 @@ func main() {
 			timeToMove = true
 		}
 
-		// snakeHead := snake.GetHead()
-		// x := snakeHead.GetCoords().X()
-		// y := snakeHead.GetCoords().Y()
-
 		if shouldMove && timeToMove {
 			timeToMove = false
 			snakeHead := snake.GetHead()
@@ -217,10 +213,17 @@ func main() {
 				frontY += float32(direction) * float32(period)
 				y += float32(direction)
 			}
-			if frontX >= higherEdge || frontX <= lowerEdge || frontY >= higherEdge || frontY <= lowerEdge {
+
+			if frontX >= higherEdge ||
+				frontX <= lowerEdge ||
+				frontY >= higherEdge ||
+				frontY <= lowerEdge ||
+				snake.CheckIntersection() {
 				shouldMove = false
 			} else {
+				// need to refactor this
 				snake.SetFront(mgl32.Vec2{frontX, frontY})
+				snake.Eat(&food, &changeFoodPosition)
 				snake.Move(mgl32.Vec2{x, y})
 			}
 		}
@@ -230,9 +233,6 @@ func main() {
 			food.SetPosition(possibleCells)
 			changeFoodPosition = false
 		}
-
-		// snake.Eat(&food, &changeFoodPosition)
-		// snake.Move(mgl32.Vec2{x, y})
 
 		processInput(window)
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)

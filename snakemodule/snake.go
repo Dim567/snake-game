@@ -8,6 +8,8 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
+const threshold = 0.9
+
 // Cell
 type Cell struct {
 	coords mgl32.Vec2
@@ -69,8 +71,9 @@ func (snake *Snake) Move(vec mgl32.Vec2) {
 }
 
 func (snake *Snake) Eat(food *Food, changeFoodPosition *bool) {
-	snakeHead := snake.GetHead()
-	if snakeHead.coords.X() == food.cell.coords.X() && snakeHead.coords.Y() == food.cell.coords.Y() {
+	snakeHead := snake.GetFront()
+	foodCoords := food.cell.GetCoords()
+	if helpers.Distance(snakeHead, foodCoords) < threshold {
 		snake.body = append(snake.body, food.cell)
 		*changeFoodPosition = true
 	}
@@ -91,6 +94,17 @@ func (snake *Snake) Draw(
 func (snake *Snake) GetHead() Cell {
 	snakeBody := snake.body
 	return snakeBody[len(snakeBody)-1]
+}
+
+func (snake *Snake) CheckIntersection() bool {
+	snakeBody := snake.body
+	snakeHead := snake.GetHead().coords
+	for i := 0; i < len(snakeBody)-1; i++ {
+		if helpers.Distance(snakeHead, snakeBody[i].coords) < threshold {
+			return true
+		}
+	}
+	return false
 }
 
 func InitSnake(n int) *Snake {

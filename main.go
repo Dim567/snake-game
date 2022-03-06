@@ -21,7 +21,8 @@ const (
 // Cells number
 const cellsNumber = 10
 
-var changeFoodPosition bool = true
+var changeFoodPosition = true
+var shouldMove = true
 
 const (
 	fromStart int8 = 1
@@ -175,8 +176,8 @@ func main() {
 	// xOffset := float32(0)
 	// yOffset := float32(0)
 	startTime := glfw.GetTime()
-	higherEdge := float32(cellsNumber - 1)
-	lowerEdge := float32(0)
+	higherEdge := float32(cellsNumber-1) + 0.5
+	lowerEdge := float32(0) - 0.5
 
 	snake := snakemodule.InitSnake(3)
 
@@ -187,38 +188,46 @@ func main() {
 		fieldCells[i] = i
 	}
 
+	timeToMove := false
+	var xLimit, yLimit float32
+
 	//////////////////////////////////////////////////////////////////
 	// main loop
 	for !window.ShouldClose() {
 		endTime := glfw.GetTime()
 		period := endTime - startTime
-		speed := 2 * period // 1 cell per second
-		delta := float32(math.Floor(speed))
-		if delta > 0 {
+
+		if period >= 0.5 {
 			startTime = endTime
+			timeToMove = true
 		}
 
-		// food.SetPosition(busyCells)
 		snakeHead := snake.GetHead()
 		x := snakeHead.GetCoords().X()
 		y := snakeHead.GetCoords().Y()
 
-		if horizontalMove {
-			x += float32(direction) * delta
-			if x >= higherEdge && direction == fromStart {
-				direction = int8(0)
+		if timeToMove {
+			if horizontalMove {
+				xLimit = x + float32(direction)*float32(period)
+			} else {
+				yLimit = y + float32(direction)*float32(period)
 			}
-			if x <= lowerEdge && direction == toStart {
-				direction = int8(0)
+			if xLimit >= higherEdge || xLimit <= lowerEdge || yLimit >= higherEdge || yLimit <= lowerEdge {
+				fmt.Println(xLimit)
+				shouldMove = false
 			}
-		} else {
-			y += float32(direction) * delta
-			if y >= higherEdge && direction == fromStart {
-				direction = int8(0)
+		}
+
+		if shouldMove && timeToMove {
+			timeToMove = false
+			if horizontalMove {
+				xLimit = x + float32(direction)*float32(period)
+				x += float32(direction)
+			} else {
+				yLimit = y + float32(direction)*float32(period)
+				y += float32(direction)
 			}
-			if y <= lowerEdge && direction == toStart {
-				direction = int8(0)
-			}
+
 		}
 
 		if changeFoodPosition {

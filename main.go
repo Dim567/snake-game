@@ -175,7 +175,6 @@ func main() {
 
 	// xOffset := float32(0)
 	// yOffset := float32(0)
-	startTime := glfw.GetTime()
 	higherEdge := float32(cellsNumber-1) + 0.5
 	lowerEdge := float32(0) - 0.5
 
@@ -189,7 +188,7 @@ func main() {
 	}
 
 	timeToMove := false
-	var xLimit, yLimit float32
+	startTime := glfw.GetTime()
 
 	//////////////////////////////////////////////////////////////////
 	// main loop
@@ -202,32 +201,28 @@ func main() {
 			timeToMove = true
 		}
 
-		snakeHead := snake.GetHead()
-		x := snakeHead.GetCoords().X()
-		y := snakeHead.GetCoords().Y()
-
-		if timeToMove {
-			if horizontalMove {
-				xLimit = x + float32(direction)*float32(period)
-			} else {
-				yLimit = y + float32(direction)*float32(period)
-			}
-			if xLimit >= higherEdge || xLimit <= lowerEdge || yLimit >= higherEdge || yLimit <= lowerEdge {
-				fmt.Println(xLimit)
-				shouldMove = false
-			}
-		}
+		// snakeHead := snake.GetHead()
+		// x := snakeHead.GetCoords().X()
+		// y := snakeHead.GetCoords().Y()
 
 		if shouldMove && timeToMove {
 			timeToMove = false
+			snakeHead := snake.GetHead()
+			x, y := snakeHead.GetCoords().Elem()
+			frontX, frontY := x, y
 			if horizontalMove {
-				xLimit = x + float32(direction)*float32(period)
+				frontX += float32(direction) * float32(period)
 				x += float32(direction)
 			} else {
-				yLimit = y + float32(direction)*float32(period)
+				frontY += float32(direction) * float32(period)
 				y += float32(direction)
 			}
-
+			if frontX >= higherEdge || frontX <= lowerEdge || frontY >= higherEdge || frontY <= lowerEdge {
+				shouldMove = false
+			} else {
+				snake.SetFront(mgl32.Vec2{frontX, frontY})
+				snake.Move(mgl32.Vec2{x, y})
+			}
 		}
 
 		if changeFoodPosition {
@@ -236,8 +231,8 @@ func main() {
 			changeFoodPosition = false
 		}
 
-		snake.Eat(&food, &changeFoodPosition)
-		snake.Move(mgl32.Vec2{x, y})
+		// snake.Eat(&food, &changeFoodPosition)
+		// snake.Move(mgl32.Vec2{x, y})
 
 		processInput(window)
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)

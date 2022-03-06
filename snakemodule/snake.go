@@ -42,13 +42,23 @@ func (food *Food) Draw(
 }
 
 type Snake struct {
-	body []Cell
+	body  []Cell
+	front mgl32.Vec2
+}
+
+func (snake *Snake) GetFront() mgl32.Vec2 {
+	return snake.front
+}
+
+func (snake *Snake) SetFront(vec mgl32.Vec2) {
+	snake.front = vec
 }
 
 func (snake *Snake) Move(vec mgl32.Vec2) {
 	snakeBody := snake.body
 	headIndex := len(snakeBody) - 1
 	headCoords := snakeBody[headIndex].coords
+
 	if vec.X() != headCoords.X() || vec.Y() != headCoords.Y() {
 		for i := 0; i < headIndex; i++ {
 			newCoords := snakeBody[i+1].coords
@@ -89,6 +99,7 @@ func InitSnake(n int) *Snake {
 	for i := 0; i < len(snake.body); i++ {
 		snake.body[i].coords = mgl32.Vec2{float32(i), float32(0)}
 	}
+	snake.SetFront(snake.GetHead().coords)
 	return &snake
 }
 

@@ -178,7 +178,7 @@ func main() {
 	higherEdge := float32(cellsNumber-1) + 0.5
 	lowerEdge := float32(0) - 0.5
 
-	snake := snakemodule.InitSnake(7)
+	snake := snakemodule.InitSnake(3)
 
 	var food snakemodule.Food
 
@@ -222,6 +222,7 @@ func main() {
 				shouldMove = false
 			} else {
 				// need to refactor this
+				// also fix intersection and period values edge cases
 				snake.SetFront(mgl32.Vec2{frontX, frontY})
 				snake.Eat(&food, &changeFoodPosition)
 				snake.Move(mgl32.Vec2{x, y})
@@ -264,18 +265,30 @@ func drawObject(program, vertexArrayObject uint32, vec mgl32.Vec2) {
 
 func processInput(window *glfw.Window) {
 	if window.GetKey(glfw.KeyUp) == glfw.Press {
+		if !horizontalMove && direction == -1 {
+			return
+		}
 		direction = 1
 		horizontalMove = false
 	}
 	if window.GetKey(glfw.KeyDown) == glfw.Press {
+		if !horizontalMove && direction == 1 {
+			return
+		}
 		direction = -1
 		horizontalMove = false
 	}
 	if window.GetKey(glfw.KeyLeft) == glfw.Press {
+		if horizontalMove && direction == 1 {
+			return
+		}
 		direction = -1
 		horizontalMove = true
 	}
 	if window.GetKey(glfw.KeyRight) == glfw.Press {
+		if horizontalMove && direction == -1 {
+			return
+		}
 		direction = 1
 		horizontalMove = true
 	}

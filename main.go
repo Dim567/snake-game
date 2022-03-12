@@ -173,13 +173,6 @@ func main() {
 	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 3*4, nil)
 	gl.EnableVertexAttribArray(0)
 
-	// xOffset := float32(0)
-	// yOffset := float32(0)
-	higherEdge := float32(cellsNumber-1) + 0.5
-	lowerEdge := float32(0) - 0.5
-
-	snake := snakemodule.InitSnake(3)
-
 	var food snakemodule.Food
 
 	fieldCells := make([]int, cellsNumber*cellsNumber)
@@ -188,45 +181,54 @@ func main() {
 	}
 
 	timeToMove := false
-	startTime := glfw.GetTime()
+	timeWindow := float32(0.4)
+	intersectionThreshold := 1 - timeWindow
+	higherEdge := float32(cellsNumber-1) + timeWindow
+	lowerEdge := float32(0) - timeWindow
 
+	snake := snakemodule.InitSnake(3, intersectionThreshold)
+
+	startTime := glfw.GetTime()
 	//////////////////////////////////////////////////////////////////
 	// main loop
 	for !window.ShouldClose() {
 		endTime := glfw.GetTime()
-		period := endTime - startTime
+		period := float32(endTime - startTime)
 
-		if period >= 0.5 {
+		if period >= timeWindow {
 			startTime = endTime
 			timeToMove = true
 		}
 
+		snakeHead := snake.GetHead()
+		x, y := snakeHead.GetCoords().Elem()
+		frontX, frontY := x, y
+		if horizontalMove {
+			frontX += float32(direction) * float32(period)
+		} else {
+			frontY += float32(direction) * float32(period)
+		}
+		snake.SetFront(mgl32.Vec2{frontX, frontY})
+
+		if frontX >= higherEdge ||
+			frontX <= lowerEdge ||
+			frontY >= higherEdge ||
+			frontY <= lowerEdge ||
+			snake.CheckIntersection() { // move this into SetFront
+			shouldMove = false
+		}
+
 		if shouldMove && timeToMove {
 			timeToMove = false
-			snakeHead := snake.GetHead()
-			x, y := snakeHead.GetCoords().Elem()
-			frontX, frontY := x, y
+			snake.Eat(&food, &changeFoodPosition)
 			if horizontalMove {
-				frontX += float32(direction) * float32(period)
 				x += float32(direction)
 			} else {
-				frontY += float32(direction) * float32(period)
 				y += float32(direction)
 			}
 
-			if frontX >= higherEdge ||
-				frontX <= lowerEdge ||
-				frontY >= higherEdge ||
-				frontY <= lowerEdge ||
-				snake.CheckIntersection() {
-				shouldMove = false
-			} else {
-				// need to refactor this
-				// also fix intersection and period values edge cases
-				snake.SetFront(mgl32.Vec2{frontX, frontY})
-				snake.Eat(&food, &changeFoodPosition)
-				snake.Move(mgl32.Vec2{x, y})
-			}
+			// need to refactor this
+			snake.Move(mgl32.Vec2{x, y})
 		}
 
 		if changeFoodPosition {

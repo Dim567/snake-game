@@ -8,8 +8,6 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
-const threshold = 0.9
-
 // Cell
 type Cell struct {
 	coords mgl32.Vec2
@@ -44,8 +42,9 @@ func (food *Food) Draw(
 }
 
 type Snake struct {
-	body  []Cell
-	front mgl32.Vec2
+	body                  []Cell
+	front                 mgl32.Vec2
+	intersectionThreshold float32
 }
 
 func (snake *Snake) GetFront() mgl32.Vec2 {
@@ -73,6 +72,7 @@ func (snake *Snake) Move(vec mgl32.Vec2) {
 func (snake *Snake) Eat(food *Food, changeFoodPosition *bool) {
 	snakeHead := snake.GetFront()
 	foodCoords := food.cell.GetCoords()
+	threshold := snake.intersectionThreshold
 	if helpers.Distance(snakeHead, foodCoords) < threshold {
 		snake.body = append(snake.body, food.cell)
 		*changeFoodPosition = true
@@ -98,7 +98,8 @@ func (snake *Snake) GetHead() Cell {
 
 func (snake *Snake) CheckIntersection() bool {
 	snakeBody := snake.body
-	snakeHead := snake.GetHead().coords
+	snakeHead := snake.GetFront()
+	threshold := snake.intersectionThreshold * 1.1
 	for i := 0; i < len(snakeBody)-1; i++ {
 		if helpers.Distance(snakeHead, snakeBody[i].coords) < threshold {
 			return true
@@ -107,13 +108,14 @@ func (snake *Snake) CheckIntersection() bool {
 	return false
 }
 
-func InitSnake(n int) *Snake {
+func InitSnake(snakeLength int, intersectionThreshold float32) *Snake {
 	var snake Snake
-	snake.body = make([]Cell, n)
-	for i := 0; i < len(snake.body); i++ {
+	snake.body = make([]Cell, snakeLength)
+	for i := 0; i < snakeLength; i++ {
 		snake.body[i].coords = mgl32.Vec2{float32(i), float32(0)}
 	}
 	snake.SetFront(snake.GetHead().coords)
+	snake.intersectionThreshold = intersectionThreshold
 	return &snake
 }
 

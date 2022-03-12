@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"image"
+	"image/draw"
 	"math"
+	"os"
 	"runtime"
 	"snakegame/snakemodule"
 	"strings"
@@ -10,6 +13,9 @@ import (
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 	"github.com/go-gl/mathgl/mgl32"
+
+	_ "image/jpeg"
+	_ "image/png"
 )
 
 // Window initial sizes
@@ -46,34 +52,44 @@ var horizontalMove = true
 
 // prepare vertices
 var vertices = []float32{
-	0, 1, 0.0, // top left
-	1, 1, 0.0, // top right
-	1, 0, 0.0, // bottom right
+	//vertices coords              texture coords
+	0, 1, 0.0 /* top left */, 0.0, 1.0,
+	1, 1, 0.0 /* top right */, 1.0, 1.0,
+	1, 0, 0.0 /* bottom right */, 1.0, 0.0,
 
-	0, 1, 0.0, // top left
-	1, 0, 0.0, // bottom right
-	0, 0, 0.0, // bottom left
+	0, 1, 0.0 /* top left */, 0.0, 1.0,
+	1, 0, 0.0 /* bottom right */, 1.0, 0.0,
+	0, 0, 0.0 /* bottom left */, 0.0, 0.0,
 }
 
 const (
 	vertexShaderSource = `
 	#version 410
     layout (location = 0) in vec3 aPos;
+	layout (location = 1) in vec2 aTexCoord;
+
+	out vec2 texCoord;
 
 	uniform mat4 transformMatrix;
 
     void main()
     {
        gl_Position = transformMatrix*vec4(aPos.x, aPos.y, aPos.z, 1.0);
+	   texCoord = aTexCoord;
     }
 	` + "\x00"
 
 	fragmentShaderSource = `
 	#version 410
+	in vec2 texCoord;
+
 	out vec4 FragmentColor;
 
+	uniform sampler2D texture1;
+
 	void main() {
-		FragmentColor=vec4(1.0, 0.0, 0.0, 1.0);	
+		// FragmentColor=vec4(1.0, 0.0, 0.0, 1.0);	
+		FragmentColor=texture(texture1, texCoord);
 	}
 	` + "\x00"
 )
@@ -170,8 +186,23 @@ func main() {
 	gl.BindBuffer(gl.ARRAY_BUFFER, vertexBufferObject)
 	gl.BufferData(gl.ARRAY_BUFFER, 4*len(vertices), gl.Ptr(vertices), gl.STATIC_DRAW)
 
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 3*4, nil)
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 5*4, nil)
 	gl.EnableVertexAttribArray(0)
+
+	gl.VertexAttribPointerWithOffset(1, 2, gl.FLOAT, false, 5*4, uintptr(12))
+	gl.EnableVertexAttribArray(1)
+
+	// load image for textures
+	imgBytes, imgWidth, imgHeight := loadImage("awesomeface.png")
+	imgBytes = reflectImageVertically(imgBytes, imgWidth, true)
+
+	// create texture
+	var texture1 uint32
+	gl.GenTextures(1, &texture1)
+	gl.BindTexture(gl.TEXTURE_2D, texture1)
+
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, imgWidth, imgHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(imgBytes))
+	gl.GenerateMipmap(gl.TEXTURE_2D)
 
 	var food snakemodule.Food
 
@@ -241,8 +272,8 @@ func main() {
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		food.Draw(program, vertexArrayObject, drawObject)
-		snake.Draw(program, vertexArrayObject, drawObject)
+		food.Draw(program, vertexArrayObject, texture1, drawObject)
+		snake.Draw(program, vertexArrayObject, texture1, drawObject)
 		// drawObject(program, vertexArrayObject, xOffset, yOffset)
 
 		glfw.PollEvents()
@@ -251,7 +282,10 @@ func main() {
 	}
 }
 
-func drawObject(program, vertexArrayObject uint32, vec mgl32.Vec2) {
+func drawObject(program, vertexArrayObject, texture uint32, vec mgl32.Vec2) {
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, texture)
+
 	scaleFactor := float32(2.0 / cellsNumber)
 	scale := mgl32.Scale3D(scaleFactor, scaleFactor, 1)
 	xPos := vec.X()*scaleFactor - 1
@@ -301,4 +335,43 @@ func framebufferSizeCallback(window *glfw.Window, width, height int) {
 	startX := int32((width - int(length)) / 2)
 	startY := int32((height - int(length)) / 2)
 	gl.Viewport(startX, startY, length, length)
+}
+
+func loadImage(path string) ([]uint8, int32, int32) {
+	f, err := os.Open(path)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+	if err != nil {
+		panic(err)
+	}
+	rgba := image.NewRGBA(img.Bounds())
+	if rgba.Stride != rgba.Rect.Size().X*4 {
+		panic("unsupported stride")
+	}
+	width := int32(rgba.Rect.Size().X)
+	height := int32(rgba.Rect.Size().Y)
+	draw.Draw(rgba, rgba.Bounds(), img, image.Point{}, draw.Src)
+	return rgba.Pix, width, height
+}
+
+func reflectImageVertically(imageData []uint8, width int32, alfa bool) []uint8 {
+	// fmt.Print(imageData)
+	reflected := make([]uint8, 0, len(imageData))
+	var stride int
+	if alfa {
+		stride = int(width * 4)
+	} else {
+		stride = int(width * 3)
+	}
+
+	for i := len(imageData) - stride; i >= 0; i = i - stride {
+		for j := i; j < stride+i; j++ {
+			reflected = append(reflected, imageData[j])
+		}
+	}
+	return reflected
 }

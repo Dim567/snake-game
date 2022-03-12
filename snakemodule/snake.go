@@ -34,11 +34,12 @@ func (food *Food) SetPosition(possibleCells []int) {
 
 func (food *Food) Draw(
 	program,
-	vao uint32,
-	draw func(program, vertexArrayObject uint32, vec mgl32.Vec2),
+	vao,
+	texture uint32,
+	draw func(program, vertexArrayObject, texture uint32, vec mgl32.Vec2),
 ) {
 	position := food.cell.coords
-	draw(program, vao, position)
+	draw(program, vao, texture, position)
 }
 
 type Snake struct {
@@ -81,13 +82,14 @@ func (snake *Snake) Eat(food *Food, changeFoodPosition *bool) {
 
 func (snake *Snake) Draw(
 	program,
-	vao uint32,
-	draw func(program, vertexArrayObject uint32, vec mgl32.Vec2),
+	vao,
+	texture uint32,
+	draw func(program, vertexArrayObject, texture uint32, vec mgl32.Vec2),
 ) {
 	snakeBody := snake.body
 	for i := 0; i < len(snakeBody); i++ {
 		coords := snakeBody[i].coords
-		draw(program, vao, coords)
+		draw(program, vao, texture, coords)
 	}
 }
 

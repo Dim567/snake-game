@@ -101,7 +101,7 @@ func (snake *Snake) GetHead() Cell {
 func (snake *Snake) CheckIntersection() bool {
 	snakeBody := snake.body
 	snakeHead := snake.GetFront()
-	threshold := snake.intersectionThreshold * 1.1
+	threshold := snake.intersectionThreshold
 	for i := 0; i < len(snakeBody)-1; i++ {
 		if helpers.Distance(snakeHead, snakeBody[i].coords) < threshold {
 			return true

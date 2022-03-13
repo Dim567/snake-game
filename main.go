@@ -30,6 +30,7 @@ const cellsNumber = 10
 var changeFoodPosition = true
 var gameOver = false
 var restartGame = true
+var pauseGame = false
 
 const (
 	fromStart int8 = 1
@@ -118,6 +119,7 @@ func main() {
 	}
 	window.MakeContextCurrent()
 	window.SetFramebufferSizeCallback(framebufferSizeCallback)
+	window.SetKeyCallback(keyInputCallback)
 
 	// init gl
 	err = gl.Init()
@@ -234,7 +236,7 @@ func main() {
 	}
 
 	timeToMove := false
-	timeWindow := float32(0.4)
+	timeWindow := float32(0.5)
 	intersectionThreshold := 1 - timeWindow
 	higherEdge := float32(cellsNumber-1) + timeWindow
 	lowerEdge := float32(0) - timeWindow
@@ -243,19 +245,31 @@ func main() {
 	var food snakemodule.Food
 
 	var startTime float64
+	var endTime float64
+	var period float32
 	//////////////////////////////////////////////////////////////////
 	// main loop
 	for !window.ShouldClose() {
 		if restartGame {
 			restartGame = false
+			pauseGame = false
 			gameOver = false
 			timeToMove = false
+			direction = 1
+			horizontalMove = true
+			changeFoodPosition = true
 			snake = snakemodule.InitSnake(3, intersectionThreshold)
 			startTime = glfw.GetTime()
+			endTime = startTime
 		}
 
-		endTime := glfw.GetTime()
-		period := float32(endTime - startTime)
+		if pauseGame {
+			period = 0
+			timeToMove = false
+			startTime = glfw.GetTime()
+		}
+		endTime = glfw.GetTime()
+		period = float32(endTime - startTime)
 
 		if period >= timeWindow {
 			startTime = endTime
@@ -280,32 +294,31 @@ func main() {
 			gameOver = true
 		}
 
-		if !gameOver && timeToMove {
-			timeToMove = false
-			snake.Eat(&food, &changeFoodPosition)
-			if horizontalMove {
-				x += float32(direction)
-			} else {
-				y += float32(direction)
-			}
-
-			// need to refactor this
-			snake.Move(mgl32.Vec2{x, y})
-		}
-
-		if changeFoodPosition {
-			possibleCells := snakemodule.GetPossibleCells(snake, fieldCells)
-			food.SetPosition(possibleCells)
-			changeFoodPosition = false
-		}
-
-		processInput(window)
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 		if gameOver {
 			drawBackground(program, vertexArrayObject, gameOverTexture)
 		} else {
+			if timeToMove {
+				timeToMove = false
+				snake.Eat(&food, &changeFoodPosition)
+				if horizontalMove {
+					x += float32(direction)
+				} else {
+					y += float32(direction)
+				}
+
+				// need to refactor this
+				snake.Move(mgl32.Vec2{x, y})
+			}
+
+			if changeFoodPosition {
+				possibleCells := snakemodule.GetPossibleCells(snake, fieldCells)
+				food.SetPosition(possibleCells)
+				changeFoodPosition = false
+			}
+
 			drawBackground(program, vertexArrayObject, backgroundTexture)
 
 			if period < (2*timeWindow/7) || period > (5*timeWindow/7) {
@@ -350,38 +363,49 @@ func drawBackground(program, vertexArrayObject, texture uint32) {
 	gl.BindVertexArray(0)
 }
 
-func processInput(window *glfw.Window) {
-	if window.GetKey(glfw.KeyUp) == glfw.Press {
-		if !horizontalMove && direction == -1 {
-			return
+func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+	if !pauseGame {
+		if key == glfw.KeyUp && action == glfw.Press {
+			fmt.Println("UP")
+			if !horizontalMove && direction == -1 {
+				return
+			}
+			direction = 1
+			horizontalMove = false
 		}
-		direction = 1
-		horizontalMove = false
-	}
-	if window.GetKey(glfw.KeyDown) == glfw.Press {
-		if !horizontalMove && direction == 1 {
-			return
+		if key == glfw.KeyDown && action == glfw.Press {
+			fmt.Println("DOWN")
+			if !horizontalMove && direction == 1 {
+				return
+			}
+			direction = -1
+			horizontalMove = false
 		}
-		direction = -1
-		horizontalMove = false
-	}
-	if window.GetKey(glfw.KeyLeft) == glfw.Press {
-		if horizontalMove && direction == 1 {
-			return
+		if key == glfw.KeyLeft && action == glfw.Press {
+			fmt.Println("LEFT")
+			if horizontalMove && direction == 1 {
+				return
+			}
+			direction = -1
+			horizontalMove = true
 		}
-		direction = -1
-		horizontalMove = true
-	}
-	if window.GetKey(glfw.KeyRight) == glfw.Press {
-		if horizontalMove && direction == -1 {
-			return
+		if key == glfw.KeyRight && action == glfw.Press {
+			fmt.Println("RIGHT")
+			if horizontalMove && direction == -1 {
+				return
+			}
+			direction = 1
+			horizontalMove = true
 		}
-		direction = 1
-		horizontalMove = true
 	}
 
-	if window.GetKey(glfw.KeyR) == glfw.Press {
+	if key == glfw.KeyR && action == glfw.Press {
 		restartGame = true
+	}
+
+	if key == glfw.KeySpace && action == glfw.Press {
+		fmt.Println("PAUSE")
+		pauseGame = !pauseGame
 	}
 }
 

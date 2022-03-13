@@ -28,7 +28,8 @@ const (
 const cellsNumber = 10
 
 var changeFoodPosition = true
-var shouldMove = true
+var gameOver = false
+var restartGame = true
 
 const (
 	fromStart int8 = 1
@@ -193,8 +194,17 @@ func main() {
 	gl.EnableVertexAttribArray(1)
 
 	// load image for textures
-	imgBytes, imgWidth, imgHeight := loadImage("awesomeface.png")
+	//snake texture
+	imgBytes, imgWidth, imgHeight := loadImage("snake-skin1.png")
 	imgBytes = reflectImageVertically(imgBytes, imgWidth, true)
+
+	//background texture
+	background, bW, bH := loadImage("background.png")
+	background = reflectImageVertically(background, bW, true)
+
+	//game over texture
+	gameOverImg, gW, gH := loadImage("game-over.png")
+	gameOverImg = reflectImageVertically(gameOverImg, gW, true)
 
 	// create texture
 	var texture1 uint32
@@ -204,7 +214,19 @@ func main() {
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, imgWidth, imgHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(imgBytes))
 	gl.GenerateMipmap(gl.TEXTURE_2D)
 
-	var food snakemodule.Food
+	var backgroundTexture uint32
+	gl.GenTextures(1, &backgroundTexture)
+	gl.BindTexture(gl.TEXTURE_2D, backgroundTexture)
+
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, bW, bH, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(background))
+	gl.GenerateMipmap(gl.TEXTURE_2D)
+
+	var gameOverTexture uint32
+	gl.GenTextures(1, &gameOverTexture)
+	gl.BindTexture(gl.TEXTURE_2D, gameOverTexture)
+
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, gW, gH, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(gameOverImg))
+	gl.GenerateMipmap(gl.TEXTURE_2D)
 
 	fieldCells := make([]int, cellsNumber*cellsNumber)
 	for i := 0; i < len(fieldCells); i++ {
@@ -217,12 +239,21 @@ func main() {
 	higherEdge := float32(cellsNumber-1) + timeWindow
 	lowerEdge := float32(0) - timeWindow
 
-	snake := snakemodule.InitSnake(3, intersectionThreshold)
+	var snake *snakemodule.Snake
+	var food snakemodule.Food
 
-	startTime := glfw.GetTime()
+	var startTime float64
 	//////////////////////////////////////////////////////////////////
 	// main loop
 	for !window.ShouldClose() {
+		if restartGame {
+			restartGame = false
+			gameOver = false
+			timeToMove = false
+			snake = snakemodule.InitSnake(3, intersectionThreshold)
+			startTime = glfw.GetTime()
+		}
+
 		endTime := glfw.GetTime()
 		period := float32(endTime - startTime)
 
@@ -246,10 +277,10 @@ func main() {
 			frontY >= higherEdge ||
 			frontY <= lowerEdge ||
 			snake.CheckIntersection() { // move this into SetFront
-			shouldMove = false
+			gameOver = true
 		}
 
-		if shouldMove && timeToMove {
+		if !gameOver && timeToMove {
 			timeToMove = false
 			snake.Eat(&food, &changeFoodPosition)
 			if horizontalMove {
@@ -272,9 +303,16 @@ func main() {
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		food.Draw(program, vertexArrayObject, texture1, drawObject)
-		snake.Draw(program, vertexArrayObject, texture1, drawObject)
-		// drawObject(program, vertexArrayObject, xOffset, yOffset)
+		if gameOver {
+			drawBackground(program, vertexArrayObject, gameOverTexture)
+		} else {
+			drawBackground(program, vertexArrayObject, backgroundTexture)
+
+			if period < (2*timeWindow/7) || period > (5*timeWindow/7) {
+				food.Draw(program, vertexArrayObject, texture1, drawObject)
+			}
+			snake.Draw(program, vertexArrayObject, texture1, drawObject)
+		}
 
 		glfw.PollEvents()
 		window.SwapBuffers()
@@ -291,6 +329,19 @@ func drawObject(program, vertexArrayObject, texture uint32, vec mgl32.Vec2) {
 	xPos := vec.X()*scaleFactor - 1
 	yPos := vec.Y()*scaleFactor - 1
 	translate := mgl32.Translate3D(xPos, yPos, 0)
+	transform := translate.Mul4(scale)
+	gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("transformMatrix\x00")), 1, false, &transform[0])
+	gl.UseProgram(program)
+	gl.BindVertexArray(vertexArrayObject)
+	gl.DrawArrays(gl.TRIANGLES, 0, 6)
+	gl.BindVertexArray(0)
+}
+
+func drawBackground(program, vertexArrayObject, texture uint32) {
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, texture)
+	scale := mgl32.Scale3D(2, 2, 1)
+	translate := mgl32.Translate3D(-1, -1, 0)
 	transform := translate.Mul4(scale)
 	gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("transformMatrix\x00")), 1, false, &transform[0])
 	gl.UseProgram(program)
@@ -328,6 +379,10 @@ func processInput(window *glfw.Window) {
 		direction = 1
 		horizontalMove = true
 	}
+
+	if window.GetKey(glfw.KeyR) == glfw.Press {
+		restartGame = true
+	}
 }
 
 func framebufferSizeCallback(window *glfw.Window, width, height int) {
@@ -359,7 +414,6 @@ func loadImage(path string) ([]uint8, int32, int32) {
 }
 
 func reflectImageVertically(imageData []uint8, width int32, alfa bool) []uint8 {
-	// fmt.Print(imageData)
 	reflected := make([]uint8, 0, len(imageData))
 	var stride int
 	if alfa {

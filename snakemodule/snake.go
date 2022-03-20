@@ -70,14 +70,15 @@ func (snake *Snake) Move(vec mgl32.Vec2) {
 	}
 }
 
-func (snake *Snake) Eat(food *Food, changeFoodPosition *bool) {
+func (snake *Snake) Eat(food Food) bool {
 	snakeHead := snake.GetFront()
 	foodCoords := food.cell.GetCoords()
 	threshold := snake.intersectionThreshold
 	if helpers.Distance(snakeHead, foodCoords) < threshold {
 		snake.body = append(snake.body, food.cell)
-		*changeFoodPosition = true
+		return true
 	}
+	return false
 }
 
 func (snake *Snake) Draw(
@@ -104,6 +105,9 @@ func (snake *Snake) CheckIntersection() bool {
 	threshold := snake.intersectionThreshold
 	for i := 0; i < len(snakeBody)-1; i++ {
 		if helpers.Distance(snakeHead, snakeBody[i].coords) < threshold {
+			// fmt.Println("snakeLength:", len(snakeBody))
+			// fmt.Println("item#:", i)
+			// fmt.Println("Distance:", helpers.Distance(snakeHead, snakeBody[i].coords))
 			return true
 		}
 	}

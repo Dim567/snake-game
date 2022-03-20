@@ -18,6 +18,20 @@ import (
 	_ "image/png"
 )
 
+type Texture struct {
+	id uint32
+}
+
+func (texture *Texture) Load(imgPath string) {
+	imgBytes, width, height := loadImage(imgPath)
+	imgBytes = reflectImageVertically(imgBytes, width, true)
+	gl.GenTextures(1, &texture.id)
+	gl.BindTexture(gl.TEXTURE_2D, texture.id)
+
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(imgBytes))
+	gl.GenerateMipmap(gl.TEXTURE_2D)
+}
+
 // Window initial sizes
 const (
 	windowWidth  = 800
@@ -27,10 +41,12 @@ const (
 // Cells number
 const cellsNumber = 10
 
-var changeFoodPosition = true
 var gameOver = false
-var restartGame = true
+
+// var restartGame = true
 var pauseGame = false
+var gameLevel = 0
+var eatenFoodCounter = 0
 
 const (
 	fromStart int8 = 1
@@ -40,8 +56,30 @@ const (
 // Movement direction
 var direction = fromStart
 
+// Time settings
+var startTime float64
+var endTime float64
+var period float32
+var levelStartTime float64
+
+// Speed settings
+var timeWindow float32
+var intersectionThreshold float32
+var higherEdge, lowerEdge float32
+var timeToMove = false
+
+// Field settings
+var fieldCells = make([]int, cellsNumber*cellsNumber)
+
+var snake *snakemodule.Snake
+var food snakemodule.Food
+
+var showLevel = true
+
 // Movement horizontal or vertical
 var horizontalMove = true
+
+var foodWasEaten = false
 
 // mouse positions
 // var firstMouse = true
@@ -178,7 +216,7 @@ func main() {
 		fmt.Errorf("failed to link programm: %v", log)
 	}
 
-	// create buffers
+	// Create buffers
 	var vertexArrayObject uint32
 	var vertexBufferObject uint32
 
@@ -195,79 +233,60 @@ func main() {
 	gl.VertexAttribPointerWithOffset(1, 2, gl.FLOAT, false, 5*4, uintptr(12))
 	gl.EnableVertexAttribArray(1)
 
-	// load image for textures
-	//snake texture
-	imgBytes, imgWidth, imgHeight := loadImage("snake-skin1.png")
-	imgBytes = reflectImageVertically(imgBytes, imgWidth, true)
+	// Create and load textures
+	var snakeTexture Texture
+	snakeTexture.Load("snake-skin1.png")
 
-	//background texture
-	background, bW, bH := loadImage("background.png")
-	background = reflectImageVertically(background, bW, true)
+	var backgroundTexture Texture
+	backgroundTexture.Load("background.png")
 
-	//game over texture
-	gameOverImg, gW, gH := loadImage("game-over.png")
-	gameOverImg = reflectImageVertically(gameOverImg, gW, true)
+	var gameOverTexture Texture
+	gameOverTexture.Load("game-over.png")
 
-	// create texture
-	var texture1 uint32
-	gl.GenTextures(1, &texture1)
-	gl.BindTexture(gl.TEXTURE_2D, texture1)
+	var levelTexture0 Texture
+	levelTexture0.Load("level0.png")
 
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, imgWidth, imgHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(imgBytes))
-	gl.GenerateMipmap(gl.TEXTURE_2D)
+	var levelTexture1 Texture
+	levelTexture1.Load("level1.png")
 
-	var backgroundTexture uint32
-	gl.GenTextures(1, &backgroundTexture)
-	gl.BindTexture(gl.TEXTURE_2D, backgroundTexture)
+	var levelTexture2 Texture
+	levelTexture2.Load("level2.png")
 
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, bW, bH, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(background))
-	gl.GenerateMipmap(gl.TEXTURE_2D)
+	var levelTexture3 Texture
+	levelTexture3.Load("level3.png")
 
-	var gameOverTexture uint32
-	gl.GenTextures(1, &gameOverTexture)
-	gl.BindTexture(gl.TEXTURE_2D, gameOverTexture)
+	levelTextures := [4]uint32{
+		levelTexture0.id,
+		levelTexture1.id,
+		levelTexture2.id,
+		levelTexture3.id,
+	}
 
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, gW, gH, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(gameOverImg))
-	gl.GenerateMipmap(gl.TEXTURE_2D)
-
-	fieldCells := make([]int, cellsNumber*cellsNumber)
 	for i := 0; i < len(fieldCells); i++ {
 		fieldCells[i] = i
 	}
 
-	timeToMove := false
-	timeWindow := float32(0.5)
-	intersectionThreshold := 1 - timeWindow
-	higherEdge := float32(cellsNumber-1) + timeWindow
-	lowerEdge := float32(0) - timeWindow
+	resetGame(0, 0.5, 3)
 
-	var snake *snakemodule.Snake
-	var food snakemodule.Food
-
-	var startTime float64
-	var endTime float64
-	var period float32
 	//////////////////////////////////////////////////////////////////
 	// main loop
 	for !window.ShouldClose() {
-		if restartGame {
-			restartGame = false
-			pauseGame = false
-			gameOver = false
-			timeToMove = false
-			direction = 1
-			horizontalMove = true
-			changeFoodPosition = true
-			snake = snakemodule.InitSnake(3, intersectionThreshold)
-			startTime = glfw.GetTime()
-			endTime = startTime
-		}
-
 		if pauseGame {
 			period = 0
 			timeToMove = false
 			startTime = glfw.GetTime()
 		}
+
+		if gameLevel == 4 {
+			gameOver = true
+		}
+
+		if eatenFoodCounter == 10 {
+			newLevel := gameLevel + 1
+			newTimeWindow := timeWindow - 0.1
+			resetGame(newLevel, newTimeWindow, 3)
+		}
+
 		endTime = glfw.GetTime()
 		period = float32(endTime - startTime)
 
@@ -286,6 +305,7 @@ func main() {
 		}
 		snake.SetFront(mgl32.Vec2{frontX, frontY})
 
+		// frontX, frontY = snake.GetFront().Elem()
 		if frontX >= higherEdge ||
 			frontX <= lowerEdge ||
 			frontY >= higherEdge ||
@@ -298,11 +318,17 @@ func main() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 		if gameOver {
-			drawBackground(program, vertexArrayObject, gameOverTexture)
+			drawBackground(program, vertexArrayObject, gameOverTexture.id)
+		} else if showLevel {
+			textureItem := levelTextures[gameLevel]
+			drawBackground(program, vertexArrayObject, textureItem)
+			timer := glfw.GetTime() - levelStartTime
+			if timer > 1 {
+				showLevel = false
+			}
 		} else {
 			if timeToMove {
 				timeToMove = false
-				snake.Eat(&food, &changeFoodPosition)
 				if horizontalMove {
 					x += float32(direction)
 				} else {
@@ -310,21 +336,22 @@ func main() {
 				}
 
 				// need to refactor this
+				foodWasEaten = snake.Eat(food)
 				snake.Move(mgl32.Vec2{x, y})
 			}
 
-			if changeFoodPosition {
-				possibleCells := snakemodule.GetPossibleCells(snake, fieldCells)
-				food.SetPosition(possibleCells)
-				changeFoodPosition = false
+			if foodWasEaten {
+				eatenFoodCounter += 1
+				setFoodPosition(fieldCells)
+				foodWasEaten = false
 			}
 
-			drawBackground(program, vertexArrayObject, backgroundTexture)
+			drawBackground(program, vertexArrayObject, backgroundTexture.id)
 
 			if period < (2*timeWindow/7) || period > (5*timeWindow/7) {
-				food.Draw(program, vertexArrayObject, texture1, drawObject)
+				food.Draw(program, vertexArrayObject, snakeTexture.id, drawObject)
 			}
-			snake.Draw(program, vertexArrayObject, texture1, drawObject)
+			snake.Draw(program, vertexArrayObject, snakeTexture.id, drawObject)
 		}
 
 		glfw.PollEvents()
@@ -366,7 +393,7 @@ func drawBackground(program, vertexArrayObject, texture uint32) {
 func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 	if !pauseGame {
 		if key == glfw.KeyUp && action == glfw.Press {
-			fmt.Println("UP")
+			// fmt.Println("UP")
 			if !horizontalMove && direction == -1 {
 				return
 			}
@@ -374,7 +401,7 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 			horizontalMove = false
 		}
 		if key == glfw.KeyDown && action == glfw.Press {
-			fmt.Println("DOWN")
+			// fmt.Println("DOWN")
 			if !horizontalMove && direction == 1 {
 				return
 			}
@@ -382,7 +409,7 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 			horizontalMove = false
 		}
 		if key == glfw.KeyLeft && action == glfw.Press {
-			fmt.Println("LEFT")
+			// fmt.Println("LEFT")
 			if horizontalMove && direction == 1 {
 				return
 			}
@@ -390,7 +417,7 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 			horizontalMove = true
 		}
 		if key == glfw.KeyRight && action == glfw.Press {
-			fmt.Println("RIGHT")
+			// fmt.Println("RIGHT")
 			if horizontalMove && direction == -1 {
 				return
 			}
@@ -400,11 +427,11 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 	}
 
 	if key == glfw.KeyR && action == glfw.Press {
-		restartGame = true
+		resetGame(0, 0.5, 3)
 	}
 
 	if key == glfw.KeySpace && action == glfw.Press {
-		fmt.Println("PAUSE")
+		// fmt.Println("PAUSE")
 		pauseGame = !pauseGame
 	}
 }
@@ -452,4 +479,32 @@ func reflectImageVertically(imageData []uint8, width int32, alfa bool) []uint8 {
 		}
 	}
 	return reflected
+}
+
+func resetGame(level int, period float32, snakeLength int) {
+	pauseGame = false
+	gameOver = false
+	timeToMove = false
+	direction = fromStart
+	horizontalMove = true
+	eatenFoodCounter = 0
+	gameLevel = level
+	showLevel = true
+
+	timeWindow = period
+	intersectionThreshold = 1 - period
+	fmt.Println(intersectionThreshold)
+	higherEdge = float32(cellsNumber-1) + period
+	lowerEdge = float32(0) - period
+
+	snake = snakemodule.InitSnake(snakeLength, intersectionThreshold)
+	setFoodPosition(fieldCells)
+
+	startTime = glfw.GetTime()
+	levelStartTime = glfw.GetTime()
+}
+
+func setFoodPosition(fieldCells []int) {
+	possibleCells := snakemodule.GetPossibleCells(snake, fieldCells)
+	food.SetPosition(possibleCells)
 }

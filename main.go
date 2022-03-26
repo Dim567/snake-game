@@ -2,20 +2,16 @@ package main
 
 import (
 	"fmt"
-	"image"
-	"image/draw"
 	"math"
 	"os"
 	"runtime"
+	"snakegame/helpers"
 	"snakegame/snakemodule"
 	"strings"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 	"github.com/go-gl/mathgl/mgl32"
-
-	_ "image/jpeg"
-	_ "image/png"
 )
 
 type Texture struct {
@@ -23,8 +19,8 @@ type Texture struct {
 }
 
 func (texture *Texture) Load(imgPath string) {
-	imgBytes, width, height := loadImage(imgPath)
-	imgBytes = reflectImageVertically(imgBytes, width, true)
+	imgBytes, width, height := helpers.LoadImage(imgPath)
+	imgBytes = helpers.ReflectImageVertically(imgBytes, width, true)
 	gl.GenTextures(1, &texture.id)
 	gl.BindTexture(gl.TEXTURE_2D, texture.id)
 
@@ -152,7 +148,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 
 	// create vertex shader
 	vertexShader := gl.CreateShader(gl.VERTEX_SHADER)
@@ -243,20 +238,23 @@ func main() {
 	var levelTexture3 Texture
 	levelTexture3.Load("level3.png")
 
+	var finishLevelTexture Texture
+	finishLevelTexture.Load("finish_level.png")
+
 	levelTextures := [4]uint32{
 		levelTexture0.id,
 		levelTexture1.id,
 		levelTexture2.id,
-		levelTexture3.id,
+		// levelTexture3.id,
+		finishLevelTexture.id,
 	}
 
 	for i := 0; i < len(fieldCells); i++ {
 		fieldCells[i] = i
 	}
 
-	resetGame(0 /*0.5,*/, 3)
+	resetGame(0, 3)
 
-	//////////////////////////////////////////////////////////////////
 	// main loop
 	for !window.ShouldClose() {
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
@@ -351,28 +349,25 @@ func main() {
 }
 
 func drawObject(program, vertexArrayObject, texture uint32, vec mgl32.Vec2) {
-	gl.ActiveTexture(gl.TEXTURE0)
-	gl.BindTexture(gl.TEXTURE_2D, texture)
-
 	scaleFactor := float32(2.0 / cellsNumber)
 	scale := mgl32.Scale3D(scaleFactor, scaleFactor, 1)
 	xPos := vec.X()*scaleFactor - 1
 	yPos := vec.Y()*scaleFactor - 1
 	translate := mgl32.Translate3D(xPos, yPos, 0)
 	transform := translate.Mul4(scale)
-	gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("transformMatrix\x00")), 1, false, &transform[0])
-	gl.UseProgram(program)
-	gl.BindVertexArray(vertexArrayObject)
-	gl.DrawArrays(gl.TRIANGLES, 0, 6)
-	gl.BindVertexArray(0)
+	draw(program, vertexArrayObject, texture, transform)
 }
 
 func drawBackground(program, vertexArrayObject, texture uint32) {
-	gl.ActiveTexture(gl.TEXTURE0)
-	gl.BindTexture(gl.TEXTURE_2D, texture)
 	scale := mgl32.Scale3D(2, 2, 1)
 	translate := mgl32.Translate3D(-1, -1, 0)
 	transform := translate.Mul4(scale)
+	draw(program, vertexArrayObject, texture, transform)
+}
+
+func draw(program, vertexArrayObject, texture uint32, transform mgl32.Mat4) {
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, texture)
 	gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("transformMatrix\x00")), 1, false, &transform[0])
 	gl.UseProgram(program)
 	gl.BindVertexArray(vertexArrayObject)
@@ -438,44 +433,6 @@ func framebufferSizeCallback(window *glfw.Window, width, height int) {
 	gl.Viewport(startX, startY, length, length)
 }
 
-func loadImage(path string) ([]uint8, int32, int32) {
-	f, err := os.Open(path)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	img, _, err := image.Decode(f)
-	if err != nil {
-		panic(err)
-	}
-	rgba := image.NewRGBA(img.Bounds())
-	if rgba.Stride != rgba.Rect.Size().X*4 {
-		panic("unsupported stride")
-	}
-	width := int32(rgba.Rect.Size().X)
-	height := int32(rgba.Rect.Size().Y)
-	draw.Draw(rgba, rgba.Bounds(), img, image.Point{}, draw.Src)
-	return rgba.Pix, width, height
-}
-
-func reflectImageVertically(imageData []uint8, width int32, alfa bool) []uint8 {
-	reflected := make([]uint8, 0, len(imageData))
-	var stride int
-	if alfa {
-		stride = int(width * 4)
-	} else {
-		stride = int(width * 3)
-	}
-
-	for i := len(imageData) - stride; i >= 0; i = i - stride {
-		for j := i; j < stride+i; j++ {
-			reflected = append(reflected, imageData[j])
-		}
-	}
-	return reflected
-}
-
 func resetGame(level int, snakeLength int) {
 	timeToMove = false
 	direction = fromStart
@@ -495,4 +452,9 @@ func resetGame(level int, snakeLength int) {
 func setFoodPosition(fieldCells []int) {
 	possibleCells := snakemodule.GetPossibleCells(snake, fieldCells)
 	food.SetPosition(possibleCells)
+}
+
+func saveProgress() {
+	data := "gugugu"
+	os.WriteFile("progress.txt", []byte(data), 0644)
 }

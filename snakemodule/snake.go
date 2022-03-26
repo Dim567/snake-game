@@ -105,9 +105,6 @@ func (snake *Snake) CheckIntersection() bool {
 	threshold := snake.intersectionThreshold
 	for i := 0; i < len(snakeBody)-1; i++ {
 		if helpers.Distance(snakeHead, snakeBody[i].coords) < threshold {
-			// fmt.Println("snakeLength:", len(snakeBody))
-			// fmt.Println("item#:", i)
-			// fmt.Println("Distance:", helpers.Distance(snakeHead, snakeBody[i].coords))
 			return true
 		}
 	}

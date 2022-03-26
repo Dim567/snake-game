@@ -42,8 +42,9 @@ const (
 const cellsNumber = 10
 
 var gameOver = false
+var showLevel = true
+var resetLevel = false
 
-// var restartGame = true
 var pauseGame = false
 var gameLevel = 0
 var eatenFoodCounter = 0
@@ -60,10 +61,9 @@ var direction = fromStart
 var startTime float64
 var endTime float64
 var period float32
-var levelStartTime float64
 
 // Speed settings
-var timeWindow float32
+var timeWindow float32 = 0.5
 var intersectionThreshold float32
 var higherEdge, lowerEdge float32
 var timeToMove = false
@@ -74,21 +74,10 @@ var fieldCells = make([]int, cellsNumber*cellsNumber)
 var snake *snakemodule.Snake
 var food snakemodule.Food
 
-var showLevel = true
-
 // Movement horizontal or vertical
 var horizontalMove = true
 
 var foodWasEaten = false
-
-// mouse positions
-// var firstMouse = true
-// var lastX = float32(900)
-// var lastY = float32(500)
-
-// velocity settings
-// var deltaTime = float32(0)
-// var lastFrame = float32(0)
 
 // prepare vertices
 var vertices = []float32{
@@ -137,7 +126,6 @@ const (
 func main() {
 	runtime.LockOSThread()
 
-	// init glfw
 	defer glfw.Terminate()
 
 	err := glfw.Init()
@@ -266,67 +254,63 @@ func main() {
 		fieldCells[i] = i
 	}
 
-	resetGame(0, 0.5, 3)
+	resetGame(0 /*0.5,*/, 3)
 
 	//////////////////////////////////////////////////////////////////
 	// main loop
 	for !window.ShouldClose() {
-		if pauseGame {
-			period = 0
-			timeToMove = false
-			startTime = glfw.GetTime()
-		}
-
-		if gameLevel == 4 {
-			gameOver = true
-		}
-
-		if eatenFoodCounter == 10 {
-			newLevel := gameLevel + 1
-			newTimeWindow := timeWindow - 0.1
-			resetGame(newLevel, newTimeWindow, 3)
-		}
-
-		endTime = glfw.GetTime()
-		period = float32(endTime - startTime)
-
-		if period >= timeWindow {
-			startTime = endTime
-			timeToMove = true
-		}
-
-		snakeHead := snake.GetHead()
-		x, y := snakeHead.GetCoords().Elem()
-		frontX, frontY := x, y
-		if horizontalMove {
-			frontX += float32(direction) * float32(period)
-		} else {
-			frontY += float32(direction) * float32(period)
-		}
-		snake.SetFront(mgl32.Vec2{frontX, frontY})
-
-		// frontX, frontY = snake.GetFront().Elem()
-		if frontX >= higherEdge ||
-			frontX <= lowerEdge ||
-			frontY >= higherEdge ||
-			frontY <= lowerEdge ||
-			snake.CheckIntersection() { // move this into SetFront
-			gameOver = true
-		}
-
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+		glfw.PollEvents()
 
-		if gameOver {
+		switch {
+		case gameOver:
+			gameLevel = 0
+			timeWindow = 0.5
+			showLevel = true
 			drawBackground(program, vertexArrayObject, gameOverTexture.id)
-		} else if showLevel {
+		case showLevel:
+			resetLevel = true
 			textureItem := levelTextures[gameLevel]
 			drawBackground(program, vertexArrayObject, textureItem)
-			timer := glfw.GetTime() - levelStartTime
-			if timer > 1 {
-				showLevel = false
+		case pauseGame:
+			timeToMove = false
+			startTime = glfw.GetTime()
+			drawBackground(program, vertexArrayObject, backgroundTexture.id)
+			food.Draw(program, vertexArrayObject, snakeTexture.id, drawObject)
+			snake.Draw(program, vertexArrayObject, snakeTexture.id, drawObject)
+		case resetLevel:
+			resetLevel = false
+			resetGame(gameLevel, 3)
+			fallthrough
+		default:
+			endTime = glfw.GetTime()
+			period = float32(endTime - startTime)
+
+			if period >= timeWindow {
+				startTime = endTime
+				timeToMove = true
 			}
-		} else {
+
+			snakeHead := snake.GetHead()
+			x, y := snakeHead.GetCoords().Elem()
+			frontX, frontY := x, y
+			if horizontalMove {
+				frontX += float32(direction) * float32(period)
+			} else {
+				frontY += float32(direction) * float32(period)
+			}
+			snake.SetFront(mgl32.Vec2{frontX, frontY})
+
+			if frontX >= higherEdge ||
+				frontX <= lowerEdge ||
+				frontY >= higherEdge ||
+				frontY <= lowerEdge ||
+				snake.CheckIntersection() ||
+				gameLevel == 3 {
+				gameOver = true
+			}
+
 			if timeToMove {
 				timeToMove = false
 				if horizontalMove {
@@ -341,9 +325,16 @@ func main() {
 			}
 
 			if foodWasEaten {
-				eatenFoodCounter += 1
-				setFoodPosition(fieldCells)
 				foodWasEaten = false
+				eatenFoodCounter += 1
+				if eatenFoodCounter == 3 {
+					eatenFoodCounter = 0
+					timeWindow -= 0.1
+					gameLevel += 1
+					showLevel = true
+				} else {
+					setFoodPosition(fieldCells)
+				}
 			}
 
 			drawBackground(program, vertexArrayObject, backgroundTexture.id)
@@ -354,7 +345,6 @@ func main() {
 			snake.Draw(program, vertexArrayObject, snakeTexture.id, drawObject)
 		}
 
-		glfw.PollEvents()
 		window.SwapBuffers()
 		glfw.SwapInterval(1)
 	}
@@ -391,9 +381,8 @@ func drawBackground(program, vertexArrayObject, texture uint32) {
 }
 
 func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-	if !pauseGame {
+	if !pauseGame && !gameOver && !showLevel {
 		if key == glfw.KeyUp && action == glfw.Press {
-			// fmt.Println("UP")
 			if !horizontalMove && direction == -1 {
 				return
 			}
@@ -401,7 +390,6 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 			horizontalMove = false
 		}
 		if key == glfw.KeyDown && action == glfw.Press {
-			// fmt.Println("DOWN")
 			if !horizontalMove && direction == 1 {
 				return
 			}
@@ -409,7 +397,6 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 			horizontalMove = false
 		}
 		if key == glfw.KeyLeft && action == glfw.Press {
-			// fmt.Println("LEFT")
 			if horizontalMove && direction == 1 {
 				return
 			}
@@ -417,7 +404,6 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 			horizontalMove = true
 		}
 		if key == glfw.KeyRight && action == glfw.Press {
-			// fmt.Println("RIGHT")
 			if horizontalMove && direction == -1 {
 				return
 			}
@@ -426,13 +412,22 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 		}
 	}
 
-	if key == glfw.KeyR && action == glfw.Press {
-		resetGame(0, 0.5, 3)
+	if showLevel {
+		if key == glfw.KeyEnter && action == glfw.Press {
+			showLevel = false
+		}
 	}
 
-	if key == glfw.KeySpace && action == glfw.Press {
-		// fmt.Println("PAUSE")
-		pauseGame = !pauseGame
+	if gameOver {
+		if key == glfw.KeyR && action == glfw.Press {
+			gameOver = false
+		}
+	}
+
+	if !gameOver && !showLevel {
+		if key == glfw.KeySpace && action == glfw.Press {
+			pauseGame = !pauseGame
+		}
 	}
 }
 
@@ -481,27 +476,20 @@ func reflectImageVertically(imageData []uint8, width int32, alfa bool) []uint8 {
 	return reflected
 }
 
-func resetGame(level int, period float32, snakeLength int) {
-	pauseGame = false
-	gameOver = false
+func resetGame(level int, snakeLength int) {
 	timeToMove = false
 	direction = fromStart
 	horizontalMove = true
-	eatenFoodCounter = 0
 	gameLevel = level
-	showLevel = true
 
-	timeWindow = period
-	intersectionThreshold = 1 - period
-	fmt.Println(intersectionThreshold)
-	higherEdge = float32(cellsNumber-1) + period
-	lowerEdge = float32(0) - period
+	intersectionThreshold = 1 - timeWindow
+	higherEdge = float32(cellsNumber-1) + timeWindow
+	lowerEdge = float32(0) - timeWindow
 
 	snake = snakemodule.InitSnake(snakeLength, intersectionThreshold)
 	setFoodPosition(fieldCells)
 
 	startTime = glfw.GetTime()
-	levelStartTime = glfw.GetTime()
 }
 
 func setFoodPosition(fieldCells []int) {

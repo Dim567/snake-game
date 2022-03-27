@@ -44,6 +44,8 @@ var resetLevel = false
 var pauseGame = false
 var gameLevel = 0
 var eatenFoodCounter = 0
+var progressSaved = false
+var startLevel = true
 
 const (
 	fromStart int8 = 1
@@ -263,11 +265,18 @@ func main() {
 
 		switch {
 		case gameOver:
-			gameLevel = 0
-			timeWindow = 0.5
 			showLevel = true
 			drawBackground(program, vertexArrayObject, gameOverTexture.id)
 		case showLevel:
+			if !progressSaved {
+				saveProgress(gameLevel)
+				progressSaved = true
+			}
+			if startLevel {
+				gameLevel = 0
+				timeWindow = 0.5
+			}
+			startLevel = false
 			resetLevel = true
 			textureItem := levelTextures[gameLevel]
 			drawBackground(program, vertexArrayObject, textureItem)
@@ -329,6 +338,7 @@ func main() {
 					eatenFoodCounter = 0
 					timeWindow -= 0.1
 					gameLevel += 1
+					progressSaved = false
 					showLevel = true
 				} else {
 					setFoodPosition(fieldCells)
@@ -416,6 +426,10 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 	if gameOver {
 		if key == glfw.KeyR && action == glfw.Press {
 			gameOver = false
+			startLevel = true
+		}
+		if key == glfw.KeyL && action == glfw.Press {
+			gameOver = false
 		}
 	}
 
@@ -454,7 +468,7 @@ func setFoodPosition(fieldCells []int) {
 	food.SetPosition(possibleCells)
 }
 
-func saveProgress() {
-	data := "gugugu"
-	os.WriteFile("progress.txt", []byte(data), 0644)
+func saveProgress(level int) {
+	currentLevel := fmt.Sprintf("%d", level)
+	os.WriteFile("progress.txt", []byte(currentLevel), 0644)
 }

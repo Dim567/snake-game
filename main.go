@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"snakegame/helpers"
 	"snakegame/snakemodule"
+	"strconv"
 	"strings"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
@@ -40,11 +41,16 @@ const cellsNumber = 10
 var gameOver = false
 var showLevel = true
 var resetLevel = false
+var loadLevel = false
 
+const levelsNumber = 5
+const maxEatenFood = 30
+
+var startGame = true
 var pauseGame = false
-var gameLevel = 0
-var eatenFoodCounter = 0
-var progressSaved = false
+var gameLevel int = 0
+var eatenFoodCounter int = 0
+var progressSaved = true
 var startLevel = true
 
 const (
@@ -243,11 +249,14 @@ func main() {
 	var finishLevelTexture Texture
 	finishLevelTexture.Load("finish_level.png")
 
-	levelTextures := [4]uint32{
+	var startGameTexture Texture
+	startGameTexture.Load("start_game.png")
+
+	levelTextures := [levelsNumber]uint32{
 		levelTexture0.id,
 		levelTexture1.id,
 		levelTexture2.id,
-		// levelTexture3.id,
+		levelTexture3.id,
 		finishLevelTexture.id,
 	}
 
@@ -264,6 +273,9 @@ func main() {
 		glfw.PollEvents()
 
 		switch {
+		case startGame:
+			showLevel = true
+			drawBackground(program, vertexArrayObject, startGameTexture.id)
 		case gameOver:
 			showLevel = true
 			drawBackground(program, vertexArrayObject, gameOverTexture.id)
@@ -274,7 +286,12 @@ func main() {
 			}
 			if startLevel {
 				gameLevel = 0
-				timeWindow = 0.5
+				timeWindow = getTimeWindow(gameLevel)
+				if loadLevel {
+					gameLevel = loadProgress()
+					timeWindow = getTimeWindow(gameLevel)
+					loadLevel = false
+				}
 			}
 			startLevel = false
 			resetLevel = true
@@ -314,7 +331,7 @@ func main() {
 				frontY >= higherEdge ||
 				frontY <= lowerEdge ||
 				snake.CheckIntersection() ||
-				gameLevel == 3 {
+				gameLevel == levelsNumber-1 {
 				gameOver = true
 			}
 
@@ -334,10 +351,9 @@ func main() {
 			if foodWasEaten {
 				foodWasEaten = false
 				eatenFoodCounter += 1
-				if eatenFoodCounter == 3 {
-					eatenFoodCounter = 0
-					timeWindow -= 0.1
+				if eatenFoodCounter == maxEatenFood {
 					gameLevel += 1
+					timeWindow = getTimeWindow(gameLevel)
 					progressSaved = false
 					showLevel = true
 				} else {
@@ -417,13 +433,13 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 		}
 	}
 
-	if showLevel {
+	if showLevel && !startGame {
 		if key == glfw.KeyEnter && action == glfw.Press {
 			showLevel = false
 		}
 	}
 
-	if gameOver {
+	if gameOver && !startGame {
 		if key == glfw.KeyR && action == glfw.Press {
 			gameOver = false
 			startLevel = true
@@ -436,6 +452,16 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 	if !gameOver && !showLevel {
 		if key == glfw.KeySpace && action == glfw.Press {
 			pauseGame = !pauseGame
+		}
+	}
+
+	if startGame {
+		if key == glfw.KeyEnter && action == glfw.Press {
+			startGame = false
+		}
+		if key == glfw.KeyL && action == glfw.Press {
+			startGame = false
+			loadLevel = true
 		}
 	}
 }
@@ -459,6 +485,7 @@ func resetGame(level int, snakeLength int) {
 
 	snake = snakemodule.InitSnake(snakeLength, intersectionThreshold)
 	setFoodPosition(fieldCells)
+	eatenFoodCounter = 0
 
 	startTime = glfw.GetTime()
 }
@@ -470,5 +497,25 @@ func setFoodPosition(fieldCells []int) {
 
 func saveProgress(level int) {
 	currentLevel := fmt.Sprintf("%d", level)
-	os.WriteFile("progress.txt", []byte(currentLevel), 0644)
+	err := os.WriteFile("progress.txt", []byte(currentLevel), 0644)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func loadProgress() int {
+	levelStr, err := os.ReadFile("progress.txt")
+	if err != nil {
+		panic(err)
+	}
+	level, err := strconv.Atoi(string(levelStr))
+	if err != nil {
+		panic(err)
+	}
+	return level
+}
+
+func getTimeWindow(level int) float32 {
+	res := float32(0.5) - float32(level)/10
+	return res
 }

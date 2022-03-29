@@ -44,7 +44,6 @@ var resetLevel = false
 var loadLevel = false
 
 const levelsNumber = 5
-const maxEatenFood = 30
 
 var startGame = true
 var pauseGame = false
@@ -226,28 +225,28 @@ func main() {
 
 	// Create and load textures
 	var snakeTexture Texture
-	snakeTexture.Load("snake-skin1.png")
+	snakeTexture.Load("snake_skin.png")
 
 	var backgroundTexture Texture
 	backgroundTexture.Load("background.png")
 
 	var gameOverTexture Texture
-	gameOverTexture.Load("game-over.png")
+	gameOverTexture.Load("game_over.png")
 
 	var levelTexture0 Texture
-	levelTexture0.Load("level0.png")
+	levelTexture0.Load("level_1.png")
 
 	var levelTexture1 Texture
-	levelTexture1.Load("level1.png")
+	levelTexture1.Load("level_2.png")
 
 	var levelTexture2 Texture
-	levelTexture2.Load("level2.png")
+	levelTexture2.Load("level_3.png")
 
 	var levelTexture3 Texture
-	levelTexture3.Load("level3.png")
+	levelTexture3.Load("level_4.png")
 
 	var finishLevelTexture Texture
-	finishLevelTexture.Load("finish_level.png")
+	finishLevelTexture.Load("finish.png")
 
 	var startGameTexture Texture
 	startGameTexture.Load("start_game.png")
@@ -351,7 +350,7 @@ func main() {
 			if foodWasEaten {
 				foodWasEaten = false
 				eatenFoodCounter += 1
-				if eatenFoodCounter == maxEatenFood {
+				if eatenFoodCounter == getFoodLimit(gameLevel) {
 					gameLevel += 1
 					timeWindow = getTimeWindow(gameLevel)
 					progressSaved = false
@@ -403,28 +402,28 @@ func draw(program, vertexArrayObject, texture uint32, transform mgl32.Mat4) {
 
 func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 	if !pauseGame && !gameOver && !showLevel {
-		if key == glfw.KeyUp && action == glfw.Press {
+		if (key == glfw.KeyW || key == glfw.KeyUp) && action == glfw.Press {
 			if !horizontalMove && direction == -1 {
 				return
 			}
 			direction = 1
 			horizontalMove = false
 		}
-		if key == glfw.KeyDown && action == glfw.Press {
+		if (key == glfw.KeyS || key == glfw.KeyDown) && action == glfw.Press {
 			if !horizontalMove && direction == 1 {
 				return
 			}
 			direction = -1
 			horizontalMove = false
 		}
-		if key == glfw.KeyLeft && action == glfw.Press {
+		if (key == glfw.KeyA || key == glfw.KeyLeft) && action == glfw.Press {
 			if horizontalMove && direction == 1 {
 				return
 			}
 			direction = -1
 			horizontalMove = true
 		}
-		if key == glfw.KeyRight && action == glfw.Press {
+		if (key == glfw.KeyD || key == glfw.KeyRight) && action == glfw.Press {
 			if horizontalMove && direction == -1 {
 				return
 			}
@@ -518,4 +517,9 @@ func loadProgress() int {
 func getTimeWindow(level int) float32 {
 	res := float32(0.5) - float32(level)/10
 	return res
+}
+
+func getFoodLimit(level int) int {
+	limit := 15 + 5*level
+	return limit
 }

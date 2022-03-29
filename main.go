@@ -25,7 +25,7 @@ func (texture *Texture) Load(imgPath string) {
 	gl.GenTextures(1, &texture.id)
 	gl.BindTexture(gl.TEXTURE_2D, texture.id)
 
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(imgBytes))
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(imgBytes))
 	gl.GenerateMipmap(gl.TEXTURE_2D)
 }
 
@@ -149,12 +149,16 @@ func main() {
 	window.MakeContextCurrent()
 	window.SetFramebufferSizeCallback(framebufferSizeCallback)
 	window.SetKeyCallback(keyInputCallback)
+	glfw.SwapInterval(1)
 
 	// init gl
 	err = gl.Init()
 	if err != nil {
 		panic(err)
 	}
+
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
 	// create vertex shader
 	vertexShader := gl.CreateShader(gl.VERTEX_SHADER)
@@ -269,7 +273,6 @@ func main() {
 	for !window.ShouldClose() {
 		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-		glfw.PollEvents()
 
 		switch {
 		case startGame:
@@ -369,7 +372,7 @@ func main() {
 		}
 
 		window.SwapBuffers()
-		glfw.SwapInterval(1)
+		glfw.PollEvents()
 	}
 }
 

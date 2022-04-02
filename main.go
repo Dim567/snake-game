@@ -5,29 +5,14 @@ import (
 	"math"
 	"os"
 	"runtime"
-	"snakegame/helpers"
+	"snakegame/graphics"
 	"snakegame/snakemodule"
 	"strconv"
-	"strings"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 	"github.com/go-gl/mathgl/mgl32"
 )
-
-type Texture struct {
-	id uint32
-}
-
-func (texture *Texture) Load(imgPath string) {
-	imgBytes, width, height := helpers.LoadImage(imgPath)
-	imgBytes = helpers.ReflectImageVertically(imgBytes, width, true)
-	gl.GenTextures(1, &texture.id)
-	gl.BindTexture(gl.TEXTURE_2D, texture.id)
-
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(imgBytes))
-	gl.GenerateMipmap(gl.TEXTURE_2D)
-}
 
 // Window initial sizes
 const (
@@ -94,173 +79,41 @@ var vertices = []float32{
 	0, 0, 0.0 /* bottom left */, 0.0, 0.0,
 }
 
-const (
-	vertexShaderSource = `
-	#version 410
-    layout (location = 0) in vec3 aPos;
-	layout (location = 1) in vec2 aTexCoord;
-
-	out vec2 texCoord;
-
-	uniform mat4 transformMatrix;
-
-    void main()
-    {
-       gl_Position = transformMatrix*vec4(aPos.x, aPos.y, aPos.z, 1.0);
-	   texCoord = aTexCoord;
-    }
-	` + "\x00"
-
-	fragmentShaderSource = `
-	#version 410
-	in vec2 texCoord;
-
-	out vec4 FragmentColor;
-
-	uniform sampler2D texture1;
-
-	void main() {
-		// FragmentColor=vec4(1.0, 0.0, 0.0, 1.0);	
-		FragmentColor=texture(texture1, texCoord);
-	}
-	` + "\x00"
-)
-
 func main() {
 	runtime.LockOSThread()
 
-	defer glfw.Terminate()
+	defer graphics.Terminate()
+	err := graphics.Init("Snake game", windowWidth, windowHeight)
+	if err != nil {
+		panic(err)
+	}
+	graphics.SetResizeWindowCallback(resizeWindowCallback)
+	graphics.SetKeyInputCallback(keyInputCallback)
 
-	err := glfw.Init()
+	program, err := graphics.CreateProgram()
 	if err != nil {
 		panic(err)
 	}
 
-	glfw.WindowHint(glfw.Resizable, glfw.True)
-	glfw.WindowHint(glfw.ContextVersionMajor, 4)
-	glfw.WindowHint(glfw.ContextVersionMinor, 1)
-	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-
-	window, err := glfw.CreateWindow(windowWidth, windowHeight, "Snake game", nil, nil)
-	if err != nil {
-		panic(err)
-	}
-	window.MakeContextCurrent()
-	window.SetFramebufferSizeCallback(framebufferSizeCallback)
-	window.SetKeyCallback(keyInputCallback)
-	glfw.SwapInterval(1)
-
-	// init gl
-	err = gl.Init()
-	if err != nil {
-		panic(err)
-	}
-
-	gl.Enable(gl.BLEND)
-	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-
-	// create vertex shader
-	vertexShader := gl.CreateShader(gl.VERTEX_SHADER)
-	source, free := gl.Strs(vertexShaderSource)
-	gl.ShaderSource(vertexShader, 1, source, nil)
-	free()
-	gl.CompileShader(vertexShader)
-	var status int32
-	gl.GetShaderiv(vertexShader, gl.COMPILE_STATUS, &status)
-	if status == gl.FALSE {
-		var logLength int32
-		gl.GetShaderiv(vertexShader, gl.INFO_LOG_LENGTH, &logLength)
-
-		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetShaderInfoLog(vertexShader, logLength, nil, gl.Str(log))
-
-		fmt.Errorf("failed to compile %v: %v", source, log)
-	}
-
-	// create fragment shader
-	fragmentShader := gl.CreateShader(gl.FRAGMENT_SHADER)
-	source, free = gl.Strs(fragmentShaderSource)
-	gl.ShaderSource(fragmentShader, 1, source, nil)
-	free()
-	gl.CompileShader(fragmentShader)
-	gl.GetShaderiv(fragmentShader, gl.COMPILE_STATUS, &status)
-	if status == gl.FALSE {
-		var logLength int32
-		gl.GetShaderiv(fragmentShader, gl.INFO_LOG_LENGTH, &logLength)
-
-		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetShaderInfoLog(fragmentShader, logLength, nil, gl.Str(log))
-
-		fmt.Errorf("failed to compile %v: %v", source, log)
-	}
-
-	// create program
-	program := gl.CreateProgram()
-	gl.AttachShader(program, vertexShader)
-	gl.AttachShader(program, fragmentShader)
-	gl.LinkProgram(program)
-	var linkStatus int32
-	gl.GetProgramiv(program, gl.LINK_STATUS, &linkStatus)
-	if linkStatus == gl.FALSE {
-		var logLength int32
-		gl.GetProgramiv(program, gl.INFO_LOG_LENGTH, &logLength)
-		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetProgramInfoLog(program, logLength, nil, gl.Str(log))
-		fmt.Errorf("failed to link programm: %v", log)
-	}
-
-	// Create buffers
-	var vertexArrayObject uint32
-	var vertexBufferObject uint32
-
-	gl.GenVertexArrays(1, &vertexArrayObject)
-	gl.GenBuffers(1, &vertexBufferObject)
-	gl.BindVertexArray(vertexArrayObject)
-
-	gl.BindBuffer(gl.ARRAY_BUFFER, vertexBufferObject)
-	gl.BufferData(gl.ARRAY_BUFFER, 4*len(vertices), gl.Ptr(vertices), gl.STATIC_DRAW)
-
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 5*4, nil)
-	gl.EnableVertexAttribArray(0)
-
-	gl.VertexAttribPointerWithOffset(1, 2, gl.FLOAT, false, 5*4, uintptr(12))
-	gl.EnableVertexAttribArray(1)
+	vertexArrayObject := graphics.CreateVAO(vertices)
 
 	// Create and load textures
-	var snakeTexture Texture
-	snakeTexture.Load("snake_skin.png")
-
-	var backgroundTexture Texture
-	backgroundTexture.Load("background.png")
-
-	var gameOverTexture Texture
-	gameOverTexture.Load("game_over.png")
-
-	var levelTexture0 Texture
-	levelTexture0.Load("level_1.png")
-
-	var levelTexture1 Texture
-	levelTexture1.Load("level_2.png")
-
-	var levelTexture2 Texture
-	levelTexture2.Load("level_3.png")
-
-	var levelTexture3 Texture
-	levelTexture3.Load("level_4.png")
-
-	var finishLevelTexture Texture
-	finishLevelTexture.Load("finish.png")
-
-	var startGameTexture Texture
-	startGameTexture.Load("start_game.png")
+	var snakeTexture = graphics.LoadTexture("snake_skin.png")
+	var backgroundTexture = graphics.LoadTexture("background.png")
+	var gameOverTexture = graphics.LoadTexture("game_over.png")
+	var levelTexture0 = graphics.LoadTexture("level_1.png")
+	var levelTexture1 = graphics.LoadTexture("level_2.png")
+	var levelTexture2 = graphics.LoadTexture("level_3.png")
+	var levelTexture3 = graphics.LoadTexture("level_4.png")
+	var finishLevelTexture = graphics.LoadTexture("finish.png")
+	var startGameTexture = graphics.LoadTexture("start_game.png")
 
 	levelTextures := [levelsNumber]uint32{
-		levelTexture0.id,
-		levelTexture1.id,
-		levelTexture2.id,
-		levelTexture3.id,
-		finishLevelTexture.id,
+		levelTexture0,
+		levelTexture1,
+		levelTexture2,
+		levelTexture3,
+		finishLevelTexture,
 	}
 
 	for i := 0; i < len(fieldCells); i++ {
@@ -268,19 +121,14 @@ func main() {
 	}
 
 	resetGame(0, 3)
-
-	// main loop
-	for !window.ShouldClose() {
-		gl.ClearColor(0.0, 1.0, 1.0, 1.0)
-		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
+	cb := func() {
 		switch {
 		case startGame:
 			showLevel = true
-			drawBackground(program, vertexArrayObject, startGameTexture.id)
+			drawBackground(program, vertexArrayObject, startGameTexture)
 		case gameOver:
 			showLevel = true
-			drawBackground(program, vertexArrayObject, gameOverTexture.id)
+			drawBackground(program, vertexArrayObject, gameOverTexture)
 		case showLevel:
 			if !progressSaved {
 				saveProgress(gameLevel)
@@ -302,9 +150,9 @@ func main() {
 		case pauseGame:
 			timeToMove = false
 			startTime = glfw.GetTime()
-			drawBackground(program, vertexArrayObject, backgroundTexture.id)
-			food.Draw(program, vertexArrayObject, snakeTexture.id, drawObject)
-			snake.Draw(program, vertexArrayObject, snakeTexture.id, drawObject)
+			drawBackground(program, vertexArrayObject, backgroundTexture)
+			food.Draw(program, vertexArrayObject, snakeTexture, drawObject)
+			snake.Draw(program, vertexArrayObject, snakeTexture, drawObject)
 		case resetLevel:
 			resetLevel = false
 			resetGame(gameLevel, 3)
@@ -363,17 +211,16 @@ func main() {
 				}
 			}
 
-			drawBackground(program, vertexArrayObject, backgroundTexture.id)
+			drawBackground(program, vertexArrayObject, backgroundTexture)
 
 			if period < (2*timeWindow/7) || period > (5*timeWindow/7) {
-				food.Draw(program, vertexArrayObject, snakeTexture.id, drawObject)
+				food.Draw(program, vertexArrayObject, snakeTexture, drawObject)
 			}
-			snake.Draw(program, vertexArrayObject, snakeTexture.id, drawObject)
+			snake.Draw(program, vertexArrayObject, snakeTexture, drawObject)
 		}
-
-		window.SwapBuffers()
-		glfw.PollEvents()
 	}
+
+	graphics.MainLoop(cb)
 }
 
 func drawObject(program, vertexArrayObject, texture uint32, vec mgl32.Vec2) {
@@ -383,24 +230,14 @@ func drawObject(program, vertexArrayObject, texture uint32, vec mgl32.Vec2) {
 	yPos := vec.Y()*scaleFactor - 1
 	translate := mgl32.Translate3D(xPos, yPos, 0)
 	transform := translate.Mul4(scale)
-	draw(program, vertexArrayObject, texture, transform)
+	graphics.Draw(program, vertexArrayObject, texture, transform)
 }
 
 func drawBackground(program, vertexArrayObject, texture uint32) {
 	scale := mgl32.Scale3D(2, 2, 1)
 	translate := mgl32.Translate3D(-1, -1, 0)
 	transform := translate.Mul4(scale)
-	draw(program, vertexArrayObject, texture, transform)
-}
-
-func draw(program, vertexArrayObject, texture uint32, transform mgl32.Mat4) {
-	gl.ActiveTexture(gl.TEXTURE0)
-	gl.BindTexture(gl.TEXTURE_2D, texture)
-	gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("transformMatrix\x00")), 1, false, &transform[0])
-	gl.UseProgram(program)
-	gl.BindVertexArray(vertexArrayObject)
-	gl.DrawArrays(gl.TRIANGLES, 0, 6)
-	gl.BindVertexArray(0)
+	graphics.Draw(program, vertexArrayObject, texture, transform)
 }
 
 func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
@@ -468,7 +305,7 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 	}
 }
 
-func framebufferSizeCallback(window *glfw.Window, width, height int) {
+func resizeWindowCallback(window *glfw.Window, width, height int) {
 	length := int32(math.Min(float64(width), float64(height)))
 	startX := int32((width - int(length)) / 2)
 	startY := int32((height - int(length)) / 2)

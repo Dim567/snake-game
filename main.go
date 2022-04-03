@@ -101,7 +101,7 @@ func main() {
 	}
 
 	resetGame(0, 3)
-	cb := func() {
+	gameLogic := func() {
 		switch {
 		case startGame:
 			showLevel = true
@@ -173,7 +173,6 @@ func main() {
 					y += float32(direction)
 				}
 
-				// need to refactor this
 				foodWasEaten = snake.Eat(food)
 				snake.Move(mgl32.Vec2{x, y})
 			}
@@ -200,7 +199,7 @@ func main() {
 		}
 	}
 
-	graphics.MainLoop(cb)
+	graphics.MainLoop(gameLogic)
 }
 
 func drawObject(texture uint32, vec mgl32.Vec2) {
@@ -220,30 +219,30 @@ func drawBackground(texture uint32) {
 	graphics.Draw(texture, transform)
 }
 
-func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+func keyInputCallback(key graphics.KeyValue, action graphics.KeyAction) {
 	if !pauseGame && !gameOver && !showLevel {
-		if (key == glfw.KeyW || key == glfw.KeyUp) && action == glfw.Press {
+		if (key == graphics.KeyW || key == graphics.KeyUp) && action == graphics.Press {
 			if !horizontalMove && direction == -1 {
 				return
 			}
 			direction = 1
 			horizontalMove = false
 		}
-		if (key == glfw.KeyS || key == glfw.KeyDown) && action == glfw.Press {
+		if (key == graphics.KeyS || key == graphics.KeyDown) && action == graphics.Press {
 			if !horizontalMove && direction == 1 {
 				return
 			}
 			direction = -1
 			horizontalMove = false
 		}
-		if (key == glfw.KeyA || key == glfw.KeyLeft) && action == glfw.Press {
+		if (key == graphics.KeyA || key == graphics.KeyLeft) && action == graphics.Press {
 			if horizontalMove && direction == 1 {
 				return
 			}
 			direction = -1
 			horizontalMove = true
 		}
-		if (key == glfw.KeyD || key == glfw.KeyRight) && action == glfw.Press {
+		if (key == graphics.KeyD || key == graphics.KeyRight) && action == graphics.Press {
 			if horizontalMove && direction == -1 {
 				return
 			}
@@ -253,32 +252,32 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 	}
 
 	if showLevel && !startGame {
-		if key == glfw.KeyEnter && action == glfw.Press {
+		if key == graphics.KeyEnter && action == graphics.Press {
 			showLevel = false
 		}
 	}
 
 	if gameOver && !startGame {
-		if key == glfw.KeyR && action == glfw.Press {
+		if key == graphics.KeyR && action == graphics.Press {
 			gameOver = false
 			startLevel = true
 		}
-		if key == glfw.KeyL && action == glfw.Press {
+		if key == graphics.KeyL && action == graphics.Press {
 			gameOver = false
 		}
 	}
 
 	if !gameOver && !showLevel {
-		if key == glfw.KeySpace && action == glfw.Press {
+		if key == graphics.KeySpace && action == graphics.Press {
 			pauseGame = !pauseGame
 		}
 	}
 
 	if startGame {
-		if key == glfw.KeyEnter && action == glfw.Press {
+		if key == graphics.KeyEnter && action == graphics.Press {
 			startGame = false
 		}
-		if key == glfw.KeyL && action == glfw.Press {
+		if key == graphics.KeyL && action == graphics.Press {
 			startGame = false
 			loadLevel = true
 		}

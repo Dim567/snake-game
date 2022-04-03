@@ -10,6 +10,148 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
+type KeyAction glfw.Action
+
+const (
+	Release KeyAction = KeyAction(glfw.Release)
+	Press   KeyAction = KeyAction(glfw.Press)
+	Repeat  KeyAction = KeyAction(glfw.Repeat)
+)
+
+type KeyValue glfw.Key
+
+const (
+	KeyUnknown      KeyValue = KeyValue(glfw.KeyUnknown)
+	KeySpace        KeyValue = KeyValue(glfw.KeySpace)
+	KeyApostrophe   KeyValue = KeyValue(glfw.KeyApostrophe)
+	KeyComma        KeyValue = KeyValue(glfw.KeyComma)
+	KeyMinus        KeyValue = KeyValue(glfw.KeyMinus)
+	KeyPeriod       KeyValue = KeyValue(glfw.KeyPeriod)
+	KeySlash        KeyValue = KeyValue(glfw.KeySlash)
+	Key0            KeyValue = KeyValue(glfw.Key0)
+	Key1            KeyValue = KeyValue(glfw.Key1)
+	Key2            KeyValue = KeyValue(glfw.Key2)
+	Key3            KeyValue = KeyValue(glfw.Key3)
+	Key4            KeyValue = KeyValue(glfw.Key4)
+	Key5            KeyValue = KeyValue(glfw.Key5)
+	Key6            KeyValue = KeyValue(glfw.Key6)
+	Key7            KeyValue = KeyValue(glfw.Key7)
+	Key8            KeyValue = KeyValue(glfw.Key8)
+	Key9            KeyValue = KeyValue(glfw.Key9)
+	KeySemicolon    KeyValue = KeyValue(glfw.KeySemicolon)
+	KeyEqual        KeyValue = KeyValue(glfw.KeyEqual)
+	KeyA            KeyValue = KeyValue(glfw.KeyA)
+	KeyB            KeyValue = KeyValue(glfw.KeyB)
+	KeyC            KeyValue = KeyValue(glfw.KeyC)
+	KeyD            KeyValue = KeyValue(glfw.KeyD)
+	KeyE            KeyValue = KeyValue(glfw.KeyE)
+	KeyF            KeyValue = KeyValue(glfw.KeyF)
+	KeyG            KeyValue = KeyValue(glfw.KeyG)
+	KeyH            KeyValue = KeyValue(glfw.KeyH)
+	KeyI            KeyValue = KeyValue(glfw.KeyI)
+	KeyJ            KeyValue = KeyValue(glfw.KeyJ)
+	KeyK            KeyValue = KeyValue(glfw.KeyK)
+	KeyL            KeyValue = KeyValue(glfw.KeyL)
+	KeyM            KeyValue = KeyValue(glfw.KeyM)
+	KeyN            KeyValue = KeyValue(glfw.KeyN)
+	KeyO            KeyValue = KeyValue(glfw.KeyO)
+	KeyP            KeyValue = KeyValue(glfw.KeyP)
+	KeyQ            KeyValue = KeyValue(glfw.KeyQ)
+	KeyR            KeyValue = KeyValue(glfw.KeyR)
+	KeyS            KeyValue = KeyValue(glfw.KeyS)
+	KeyT            KeyValue = KeyValue(glfw.KeyT)
+	KeyU            KeyValue = KeyValue(glfw.KeyY)
+	KeyV            KeyValue = KeyValue(glfw.KeyV)
+	KeyW            KeyValue = KeyValue(glfw.KeyW)
+	KeyX            KeyValue = KeyValue(glfw.KeyX)
+	KeyY            KeyValue = KeyValue(glfw.KeyY)
+	KeyZ            KeyValue = KeyValue(glfw.KeyZ)
+	KeyLeftBracket  KeyValue = KeyValue(glfw.KeyLeftBracket)
+	KeyBackslash    KeyValue = KeyValue(glfw.KeyBackslash)
+	KeyRightBracket KeyValue = KeyValue(glfw.KeyRightBracket)
+	KeyGraveAccent  KeyValue = KeyValue(glfw.KeyGraveAccent)
+	KeyWorld1       KeyValue = KeyValue(glfw.KeyWorld1)
+	KeyWorld2       KeyValue = KeyValue(glfw.KeyWorld2)
+	KeyEscape       KeyValue = KeyValue(glfw.KeyEscape)
+	KeyEnter        KeyValue = KeyValue(glfw.KeyEnter)
+	KeyTab          KeyValue = KeyValue(glfw.KeyTab)
+	KeyBackspace    KeyValue = KeyValue(glfw.KeyBackspace)
+	KeyInsert       KeyValue = KeyValue(glfw.KeyInsert)
+	KeyDelete       KeyValue = KeyValue(glfw.KeyDelete)
+	KeyRight        KeyValue = KeyValue(glfw.KeyRight)
+	KeyLeft         KeyValue = KeyValue(glfw.KeyLeft)
+	KeyDown         KeyValue = KeyValue(glfw.KeyDown)
+	KeyUp           KeyValue = KeyValue(glfw.KeyUp)
+	KeyPageUp       KeyValue = KeyValue(glfw.KeyPageUp)
+	KeyPageDown     KeyValue = KeyValue(glfw.KeyPageDown)
+	KeyHome         KeyValue = KeyValue(glfw.KeyHome)
+	KeyEnd          KeyValue = KeyValue(glfw.KeyEnd)
+	KeyCapsLock     KeyValue = KeyValue(glfw.KeyCapsLock)
+	KeyScrollLock   KeyValue = KeyValue(glfw.KeyScrollLock)
+	KeyNumLock      KeyValue = KeyValue(glfw.KeyNumLock)
+	KeyPrintScreen  KeyValue = KeyValue(glfw.KeyPrintScreen)
+	KeyPause        KeyValue = KeyValue(glfw.KeyPause)
+	KeyF1           KeyValue = KeyValue(glfw.KeyF1)
+	KeyF2           KeyValue = KeyValue(glfw.KeyF2)
+	KeyF3           KeyValue = KeyValue(glfw.KeyF3)
+	KeyF4           KeyValue = KeyValue(glfw.KeyF4)
+	KeyF5           KeyValue = KeyValue(glfw.KeyF5)
+	KeyF6           KeyValue = KeyValue(glfw.KeyF6)
+	KeyF7           KeyValue = KeyValue(glfw.KeyF7)
+	KeyF8           KeyValue = KeyValue(glfw.KeyF8)
+	KeyF9           KeyValue = KeyValue(glfw.KeyF9)
+	KeyF10          KeyValue = KeyValue(glfw.KeyF10)
+	KeyF11          KeyValue = KeyValue(glfw.KeyF11)
+	KeyF12          KeyValue = KeyValue(glfw.KeyF12)
+	KeyF13          KeyValue = KeyValue(glfw.KeyF13)
+	KeyF14          KeyValue = KeyValue(glfw.KeyF14)
+	KeyF15          KeyValue = KeyValue(glfw.KeyF15)
+	KeyF16          KeyValue = KeyValue(glfw.KeyF16)
+	KeyF17          KeyValue = KeyValue(glfw.KeyF17)
+	KeyF18          KeyValue = KeyValue(glfw.KeyF18)
+	KeyF19          KeyValue = KeyValue(glfw.KeyF19)
+	KeyF20          KeyValue = KeyValue(glfw.KeyF20)
+	KeyF21          KeyValue = KeyValue(glfw.KeyF21)
+	KeyF22          KeyValue = KeyValue(glfw.KeyF22)
+	KeyF23          KeyValue = KeyValue(glfw.KeyF23)
+	KeyF24          KeyValue = KeyValue(glfw.KeyF24)
+	KeyF25          KeyValue = KeyValue(glfw.KeyF25)
+	KeyKP0          KeyValue = KeyValue(glfw.KeyKP0)
+	KeyKP1          KeyValue = KeyValue(glfw.KeyKP1)
+	KeyKP2          KeyValue = KeyValue(glfw.KeyKP2)
+	KeyKP3          KeyValue = KeyValue(glfw.KeyKP3)
+	KeyKP4          KeyValue = KeyValue(glfw.KeyKP4)
+	KeyKP5          KeyValue = KeyValue(glfw.KeyKP5)
+	KeyKP6          KeyValue = KeyValue(glfw.KeyKP6)
+	KeyKP7          KeyValue = KeyValue(glfw.KeyKP7)
+	KeyKP8          KeyValue = KeyValue(glfw.KeyKP8)
+	KeyKP9          KeyValue = KeyValue(glfw.KeyKP9)
+	KeyKPDecimal    KeyValue = KeyValue(glfw.KeyKPDecimal)
+	KeyKPDivide     KeyValue = KeyValue(glfw.KeyKPDivide)
+	KeyKPMultiply   KeyValue = KeyValue(glfw.KeyKPMultiply)
+	KeyKPSubtract   KeyValue = KeyValue(glfw.KeyKPSubtract)
+	KeyKPAdd        KeyValue = KeyValue(glfw.KeyKPAdd)
+	KeyKPEnter      KeyValue = KeyValue(glfw.KeyKPEnter)
+	KeyKPEqual      KeyValue = KeyValue(glfw.KeyKPEqual)
+	KeyLeftShift    KeyValue = KeyValue(glfw.KeyLeftShift)
+	KeyLeftControl  KeyValue = KeyValue(glfw.KeyLeftControl)
+	KeyLeftAlt      KeyValue = KeyValue(glfw.KeyLeftAlt)
+	KeyLeftSuper    KeyValue = KeyValue(glfw.KeyLeftSuper)
+	KeyRightShift   KeyValue = KeyValue(glfw.KeyRightShift)
+	KeyRightControl KeyValue = KeyValue(glfw.KeyRightControl)
+	KeyRightAlt     KeyValue = KeyValue(glfw.KeyRightAlt)
+	KeyRightSuper   KeyValue = KeyValue(glfw.KeyRightSuper)
+	KeyMenu         KeyValue = KeyValue(glfw.KeyMenu)
+	KeyLast         KeyValue = KeyValue(glfw.KeyLast)
+)
+
+type ShaderType int
+
+const (
+	Vertex ShaderType = iota
+	Fragment
+)
+
 var window *glfw.Window
 var program, vertexArrayObject uint32
 var vertices = []float32{
@@ -80,12 +222,12 @@ func Init(windowName string, windowWidth, windowHeight int) error {
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-	vertexShader, err := createShader("vertex", vertexShaderSource)
+	vertexShader, err := createShader(Vertex, vertexShaderSource)
 	if err != nil {
 		return err
 	}
 
-	fragmentShader, err := createShader("fragment", fragmentShaderSource)
+	fragmentShader, err := createShader(Fragment, fragmentShaderSource)
 	if err != nil {
 		return err
 	}
@@ -111,7 +253,10 @@ func SetResizeWindowCallback(callback func(width, height int) (startX, startY, n
 	window.SetFramebufferSizeCallback(framebufferSizeCallback)
 }
 
-func SetKeyInputCallback(keyInputCallback glfw.KeyCallback) {
+func SetKeyInputCallback(callback func(keyValue KeyValue, keyAction KeyAction)) {
+	keyInputCallback := func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+		callback(KeyValue(key), KeyAction(action))
+	}
 	window.SetKeyCallback(keyInputCallback)
 }
 
@@ -125,12 +270,12 @@ func MainLoop(gameLogic func()) {
 	}
 }
 
-func createShader(shaderType, shaderSource string) (uint32, error) {
+func createShader(shaderType ShaderType, shaderSource string) (uint32, error) {
 	var shType uint32
-	if shaderType == "vertex" {
+	if shaderType == Vertex {
 		shType = gl.VERTEX_SHADER
 	}
-	if shaderType == "fragment" {
+	if shaderType == Fragment {
 		shType = gl.FRAGMENT_SHADER
 	}
 	shader := gl.CreateShader(shType)

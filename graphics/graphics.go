@@ -11,6 +11,17 @@ import (
 )
 
 var window *glfw.Window
+var program, vertexArrayObject uint32
+var vertices = []float32{
+	//vertices coords              texture coords
+	0, 1, 0.0 /* top left */, 0.0, 1.0,
+	1, 1, 0.0 /* top right */, 1.0, 1.0,
+	1, 0, 0.0 /* bottom right */, 1.0, 0.0,
+
+	0, 1, 0.0 /* top left */, 0.0, 1.0,
+	1, 0, 0.0 /* bottom right */, 1.0, 0.0,
+	0, 0, 0.0 /* bottom left */, 0.0, 0.0,
+}
 
 const (
 	vertexShaderSource = `
@@ -68,6 +79,23 @@ func Init(windowName string, windowWidth, windowHeight int) error {
 
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+	vertexShader, err := createShader("vertex", vertexShaderSource)
+	if err != nil {
+		return err
+	}
+
+	fragmentShader, err := createShader("fragment", fragmentShaderSource)
+	if err != nil {
+		return err
+	}
+	program, err = createProgram(vertexShader, fragmentShader)
+	if err != nil {
+		return err
+	}
+
+	vertexArrayObject = createVAO(vertices)
+
 	return nil
 }
 
@@ -75,7 +103,11 @@ func Terminate() {
 	glfw.Terminate()
 }
 
-func SetResizeWindowCallback(framebufferSizeCallback glfw.FramebufferSizeCallback) {
+func SetResizeWindowCallback(callback func(width, height int) (startX, startY, newWidth, newHeight int32)) {
+	framebufferSizeCallback := func(w *glfw.Window, width int, height int) {
+		startX, startY, nWidth, nHeight := callback(width, height)
+		gl.Viewport(startX, startY, nWidth, nHeight)
+	}
 	window.SetFramebufferSizeCallback(framebufferSizeCallback)
 }
 
@@ -120,16 +152,7 @@ func createShader(shaderType, shaderSource string) (uint32, error) {
 	return shader, nil
 }
 
-func CreateProgram() (uint32, error) {
-	vertexShader, err := createShader("vertex", vertexShaderSource)
-	if err != nil {
-		return 0, err
-	}
-
-	fragmentShader, err := createShader("fragment", fragmentShaderSource)
-	if err != nil {
-		return 0, err
-	}
+func createProgram(vertexShader, fragmentShader uint32) (uint32, error) {
 	program := gl.CreateProgram()
 	gl.AttachShader(program, vertexShader)
 	gl.AttachShader(program, fragmentShader)
@@ -146,7 +169,7 @@ func CreateProgram() (uint32, error) {
 	return program, nil
 }
 
-func CreateVAO(vertices []float32) uint32 {
+func createVAO(vertices []float32) uint32 {
 	var vertexArrayObject uint32
 	var vertexBufferObject uint32
 
@@ -177,7 +200,7 @@ func LoadTexture(imgPath string) uint32 {
 	return texture
 }
 
-func Draw(program, vertexArrayObject, texture uint32, transform mgl32.Mat4) {
+func Draw(texture uint32, transform mgl32.Mat4) {
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, texture)
 	gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("transformMatrix\x00")), 1, false, &transform[0])

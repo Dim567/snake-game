@@ -9,7 +9,6 @@ import (
 	"snakegame/snakemodule"
 	"strconv"
 
-	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 	"github.com/go-gl/mathgl/mgl32"
 )
@@ -67,18 +66,6 @@ var horizontalMove = true
 
 var foodWasEaten = false
 
-// prepare vertices
-var vertices = []float32{
-	//vertices coords              texture coords
-	0, 1, 0.0 /* top left */, 0.0, 1.0,
-	1, 1, 0.0 /* top right */, 1.0, 1.0,
-	1, 0, 0.0 /* bottom right */, 1.0, 0.0,
-
-	0, 1, 0.0 /* top left */, 0.0, 1.0,
-	1, 0, 0.0 /* bottom right */, 1.0, 0.0,
-	0, 0, 0.0 /* bottom left */, 0.0, 0.0,
-}
-
 func main() {
 	runtime.LockOSThread()
 
@@ -89,13 +76,6 @@ func main() {
 	}
 	graphics.SetResizeWindowCallback(resizeWindowCallback)
 	graphics.SetKeyInputCallback(keyInputCallback)
-
-	program, err := graphics.CreateProgram()
-	if err != nil {
-		panic(err)
-	}
-
-	vertexArrayObject := graphics.CreateVAO(vertices)
 
 	// Create and load textures
 	var snakeTexture = graphics.LoadTexture("snake_skin.png")
@@ -125,10 +105,10 @@ func main() {
 		switch {
 		case startGame:
 			showLevel = true
-			drawBackground(program, vertexArrayObject, startGameTexture)
+			drawBackground(startGameTexture)
 		case gameOver:
 			showLevel = true
-			drawBackground(program, vertexArrayObject, gameOverTexture)
+			drawBackground(gameOverTexture)
 		case showLevel:
 			if !progressSaved {
 				saveProgress(gameLevel)
@@ -146,13 +126,13 @@ func main() {
 			startLevel = false
 			resetLevel = true
 			textureItem := levelTextures[gameLevel]
-			drawBackground(program, vertexArrayObject, textureItem)
+			drawBackground(textureItem)
 		case pauseGame:
 			timeToMove = false
 			startTime = glfw.GetTime()
-			drawBackground(program, vertexArrayObject, backgroundTexture)
-			food.Draw(program, vertexArrayObject, snakeTexture, drawObject)
-			snake.Draw(program, vertexArrayObject, snakeTexture, drawObject)
+			drawBackground(backgroundTexture)
+			food.Draw(snakeTexture, drawObject)
+			snake.Draw(snakeTexture, drawObject)
 		case resetLevel:
 			resetLevel = false
 			resetGame(gameLevel, 3)
@@ -211,33 +191,33 @@ func main() {
 				}
 			}
 
-			drawBackground(program, vertexArrayObject, backgroundTexture)
+			drawBackground(backgroundTexture)
 
 			if period < (2*timeWindow/7) || period > (5*timeWindow/7) {
-				food.Draw(program, vertexArrayObject, snakeTexture, drawObject)
+				food.Draw(snakeTexture, drawObject)
 			}
-			snake.Draw(program, vertexArrayObject, snakeTexture, drawObject)
+			snake.Draw(snakeTexture, drawObject)
 		}
 	}
 
 	graphics.MainLoop(cb)
 }
 
-func drawObject(program, vertexArrayObject, texture uint32, vec mgl32.Vec2) {
+func drawObject(texture uint32, vec mgl32.Vec2) {
 	scaleFactor := float32(2.0 / cellsNumber)
 	scale := mgl32.Scale3D(scaleFactor, scaleFactor, 1)
 	xPos := vec.X()*scaleFactor - 1
 	yPos := vec.Y()*scaleFactor - 1
 	translate := mgl32.Translate3D(xPos, yPos, 0)
 	transform := translate.Mul4(scale)
-	graphics.Draw(program, vertexArrayObject, texture, transform)
+	graphics.Draw(texture, transform)
 }
 
-func drawBackground(program, vertexArrayObject, texture uint32) {
+func drawBackground(texture uint32) {
 	scale := mgl32.Scale3D(2, 2, 1)
 	translate := mgl32.Translate3D(-1, -1, 0)
 	transform := translate.Mul4(scale)
-	graphics.Draw(program, vertexArrayObject, texture, transform)
+	graphics.Draw(texture, transform)
 }
 
 func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
@@ -305,11 +285,13 @@ func keyInputCallback(window *glfw.Window, key glfw.Key, scancode int, action gl
 	}
 }
 
-func resizeWindowCallback(window *glfw.Window, width, height int) {
+func resizeWindowCallback(width, height int) (startX, startY, newWidth, newHeight int32) {
 	length := int32(math.Min(float64(width), float64(height)))
-	startX := int32((width - int(length)) / 2)
-	startY := int32((height - int(length)) / 2)
-	gl.Viewport(startX, startY, length, length)
+	startX = int32((width - int(length)) / 2)
+	startY = int32((height - int(length)) / 2)
+	newWidth = length
+	newHeight = length
+	return
 }
 
 func resetGame(level int, snakeLength int) {
